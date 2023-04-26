@@ -1,0 +1,18 @@
+ws-port: 5554
+
+#loopback-only: false
+
+source: {
+  type: "record",
+  record-token: "token"
+  #track-motion-event: true
+  #motion-preview-time: 300 // seconds
+}
+
+#stun-server: "stun://stun.l.google.com:19302"
+#turn-server: "turn://username:password@host:port"
+
+debug: {
+  log-level: 5
+#  lws-log-level: 2
+}

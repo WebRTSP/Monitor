@@ -1,0 +1,3 @@
+#!/bin/sh -e
+
+cp "${SNAP}/opt/${SNAP_NAME}/etc/monitor.conf.sample" "${SNAP_COMMON}/monitor.conf"
