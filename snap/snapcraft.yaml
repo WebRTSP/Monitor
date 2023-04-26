@@ -1,0 +1,78 @@
+name: video-monitor
+base: core24
+version: git
+summary: Remote video streams viewer
+description: Shows video from WebRTSP source to default output
+license: GPL-3.0
+grade: stable
+confinement: strict
+adopt-info: monitor
+
+platforms:
+  arm64:
+
+environment:
+  GST_DEBUG: 2
+  GST_DEBUG_NO_COLOR: 1
+  GST_PLUGIN_PATH: $SNAP/usr/lib/${CRAFT_ARCH_TRIPLET_BUILD_FOR}/gstreamer-1.0
+  GST_PLUGIN_SYSTEM_PATH: $SNAP/usr/lib/${CRAFT_ARCH_TRIPLET_BUILD_FOR}/gstreamer-1.0
+  GST_PLUGIN_SCANNER: $SNAP/usr/lib/${CRAFT_ARCH_TRIPLET_BUILD_FOR}/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
+
+layout:
+  /etc/glvnd:
+    bind: $SNAP/etc/glvnd
+  /usr/share/glvnd:
+    bind: $SNAP/usr/share/glvnd
+  /usr/lib/${CRAFT_ARCH_TRIPLET_BUILD_FOR}/dri:
+    bind: $SNAP/usr/lib/${CRAFT_ARCH_TRIPLET_BUILD_FOR}/dri
+  /usr/lib/${CRAFT_ARCH_TRIPLET_BUILD_FOR}/gbm:
+    bind: $SNAP/usr/lib/${CRAFT_ARCH_TRIPLET_BUILD_FOR}/gbm
+  /usr/lib/${CRAFT_ARCH_TRIPLET_BUILD_FOR}/pulseaudio:
+    bind: $SNAP/usr/lib/${CRAFT_ARCH_TRIPLET_BUILD_FOR}/pulseaudio
+
+parts:
+  monitor:
+    plugin: cmake
+    source: .
+    cmake-parameters:
+      - -DCMAKE_INSTALL_PREFIX=/opt/${SNAPCRAFT_PROJECT_NAME}
+    build-packages:
+      - g++
+      - make
+      - libspdlog-dev
+      - libconfig-dev
+      - libgstreamer1.0-dev
+      - libgstreamer-plugins-base1.0-dev
+      - libgstreamer-plugins-bad1.0-dev
+      - libmicrohttpd-dev
+      - libwebsockets-dev
+      - libnice-dev
+    stage-packages:
+      - libpulse0
+      - libegl-mesa0
+      - libglu1-mesa
+      - libgl1-mesa-dri
+      - libglut3.12
+      - va-driver-all
+      - gstreamer1.0-plugins-base
+      - gstreamer1.0-plugins-good
+      - gstreamer1.0-plugins-bad
+      - gstreamer1.0-libav
+      - gstreamer1.0-nice
+      - gstreamer1.0-gl
+      - libconfig9
+      - libspdlog1.12
+      - libmicrohttpd12
+      - libwebsockets19t64
+      - libwebsockets-evlib-glib
+
+apps:
+  monitor:
+    environment:
+      LD_LIBRARY_PATH: $LD_LIBRARY_PATH:$SNAP/usr/lib/${CRAFT_ARCH_TRIPLET_BUILD_FOR}/blas:$SNAP/usr/lib/${CRAFT_ARCH_TRIPLET_BUILD_FOR}/lapack
+    command: opt/${SNAPCRAFT_PROJECT_NAME}/bin/Monitor
+    daemon: simple
+    plugs:
+      - opengl
+      - network-bind
+      - network
