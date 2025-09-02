@@ -4,7 +4,9 @@
 #include <CxxPtr/libwebsocketsPtr.h>
 
 #include "Signalling/WsServer.h"
+
 #include "WebRTSP/Client/WsClient.h"
+#include "WebRTSP/Client/ClientSession.h"
 
 #include "RtStreaming/GstRtStreaming/GstTestStreamer.h"
 #include "RtStreaming/GstRtStreaming/GstReStreamer.h"
@@ -16,11 +18,16 @@
 
 #include "Log.h"
 #include "RecordSession.h"
+#include "Session.h"
 
 
 static const auto Log = MonitorLog;
-
 typedef std::map<std::string, std::unique_ptr<GstStreamingSource>> MountPoints;
+
+enum {
+    MIN_RECONNECT_TIMEOUT = 3, // seconds
+    MAX_RECONNECT_TIMEOUT = 10, // seconds
+};
 
 static std::unique_ptr<WebRTCPeer>
 CreatePeer(
@@ -63,6 +70,39 @@ static void OnRecorderDisconnected(const std::string& uri)
     Log()->info("Recorder disconnected from \"{}\" streamer", uri);
 }
 
+
+static std::unique_ptr<WebRTCPeer>
+CreateClientPeer(const Config* config)
+{
+    return std::make_unique<GstClient>();
+}
+
+static std::unique_ptr<rtsp::Session> CreateClientSession (
+    const Config* config,
+    const rtsp::Session::SendRequest& sendRequest,
+    const rtsp::Session::SendResponse& sendResponse) noexcept
+{
+    return std::make_unique<Session>(
+        config,
+        std::bind(CreateClientPeer, config),
+        sendRequest, sendResponse);
+}
+
+static void ClientDisconnected(client::WsClient& client)
+{
+    const unsigned reconnectTimeout =
+        g_random_int_range(MIN_RECONNECT_TIMEOUT, MAX_RECONNECT_TIMEOUT + 1);
+    Log()->info("Scheduling reconnect within {} seconds...", reconnectTimeout);
+    GSourcePtr timeoutSourcePtr(g_timeout_source_new_seconds(reconnectTimeout));
+    GSource* timeoutSource = timeoutSourcePtr.get();
+    g_source_set_callback(timeoutSource,
+        [] (gpointer userData) -> gboolean {
+            static_cast<client::WsClient*>(userData)->connect();
+            return false;
+        }, &client, nullptr);
+    g_source_attach(timeoutSource, g_main_context_get_thread_default());
+}
+
 int MonitorMain(const Config& config)
 {
     if(!config.source)
@@ -98,6 +138,22 @@ int MonitorMain(const Config& config)
                 std::placeholders::_2));
 
         if(server.init(lwsContext)) {
+            g_main_loop_run(loop);
+            return 0;
+        }
+    } else if(config.source->client) {
+        client::WsClient client(
+            config.source->client.value(),
+            loop,
+            std::bind(
+                CreateClientSession,
+                &config,
+                std::placeholders::_1,
+                std::placeholders::_2),
+            ClientDisconnected);
+
+        if(client.init()) {
+            client.connect();
             g_main_loop_run(loop);
             return 0;
         }

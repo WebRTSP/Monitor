@@ -1,7 +1,13 @@
+#source: {
+#  token: "token",
+##  port: 5554,
+##  loopback-only: false,
+#}
+
 source: {
-  token: "token",
-#  port: 5554,
-#  loopback-only: false,
+  // "webrtsp://" for plain WebSocket connection (ws://)
+  // "webrtsps:" for Secure WebSocket connection (wss://)
+  url: "webrtsps://ipcam.stream/%C5%A0trbsk%C3%A9%20pleso"
 }
 
 webrtc: {

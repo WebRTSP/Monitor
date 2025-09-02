@@ -39,6 +39,7 @@ target_link_libraries(${PROJECT_NAME}
     Http
     RtspParser
     Signalling
+    Client
     RtStreaming)
 
 if(SNAPCRAFT_BUILD)

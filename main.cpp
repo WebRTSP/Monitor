@@ -11,10 +11,13 @@
 #include "Helpers/ConfigHelpers.h"
 #include "Helpers/LwsLog.h"
 
+#include "RtspParser/Common.h"
+
 #include "RtStreaming/GstRtStreaming/Log.h"
 #include "RtStreaming/GstRtStreaming/LibGst.h"
 
 #include "Signalling/Log.h"
+#include "Client/Log.h"
 
 #include "Log.h"
 #include "Monitor.h"
@@ -126,6 +129,8 @@ static bool LoadConfig(Config* config)
 
         config_setting_t* sourceConfig = config_lookup(&config, "source");
         if(sourceConfig && config_setting_is_group(sourceConfig) != CONFIG_FALSE) {
+            StreamSource::Type sourceType = StreamSource::Type::Record;
+
             const char* token = "";
             config_setting_lookup_string(sourceConfig, "token", &token);
 
@@ -146,19 +151,89 @@ static bool LoadConfig(Config* config)
             int loopbackOnly = FALSE;
             config_lookup_bool(&config, "loopback-only", &loopbackOnly);
 
+            const char* url;
+            bool useTls = false;
+            gchar* webrtspServer = nullptr;
+            unsigned short webrtspPort = 0;
+            std::string uri;
+            if(config_setting_lookup_string(sourceConfig, "url", &url) != CONFIG_FALSE) {
+                gchar* scheme;
+                gint port;
+                gchar* path;
+                if(g_uri_split(
+                    url,
+                    G_URI_FLAGS_NONE,
+                    &scheme,
+                    nullptr, // userinfo
+                    &webrtspServer,
+                    &port,
+                    &path,
+                    nullptr, // query
+                    nullptr, // fragment
+                    nullptr))
+                {
+                    if(g_strcmp0(scheme, "webrtsp") == 0) {
+                        sourceType = StreamSource::Type::WebRTSP;
+                        useTls = false;
+                    } else if(g_strcmp0(scheme, "webrtsps") == 0) {
+                        sourceType = StreamSource::Type::WebRTSP;
+                        useTls = true;
+                    }
+
+                    if(port == -1) {
+                        webrtspPort = useTls ?
+                            signalling::DEFAULT_WSS_PORT :
+                            signalling::DEFAULT_WS_PORT;
+                    } else if(
+                        port < std::numeric_limits<uint16_t>::min() ||
+                        port > std::numeric_limits<uint16_t>::max()
+                    ) {
+                        Log()->error(
+                            "\"port\" value is invalid. In should be in [{}, {}]",
+                            std::numeric_limits<uint16_t>::min(),
+                            std::numeric_limits<uint16_t>::max());
+                    } else {
+                       webrtspPort = port;
+                    }
+
+                    if(path[0] == '/')
+                        ++path;
+
+                    if(path[0] == '\0' || g_strcmp0(path, rtsp::WildcardUri) == 0)
+                        uri = rtsp::WildcardUri;
+                    else {
+                        g_autofree gchar* escapedPath = g_uri_escape_string(path, nullptr, false);
+                        uri = escapedPath;
+                    }
+                } else {
+                    Log()->error("URL is invalid");
+                }
+            }
+
             std::optional<signalling::Config> serverConfig;
-            if(wsPort) {
+            if(sourceType == StreamSource::Type::Record && wsPort) {
                 serverConfig = signalling::Config {
                     .bindToLoopbackOnly = loopbackOnly != FALSE,
                     .port = static_cast<unsigned short>(wsPort),
                 };
             }
 
+            std::optional<client::Config> clientConfig;
+            if(sourceType == StreamSource::Type::WebRTSP && webrtspServer && webrtspPort) {
+                clientConfig = client::Config {
+                    .server = webrtspServer,
+                    .serverPort = webrtspPort,
+                    .useTls = useTls,
+                };
+            }
+
             loadedConfig.source =
                 StreamSource {
-                    StreamSource::Type::Record,
+                    sourceType,
                     serverConfig,
-                    token
+                    clientConfig,
+                    uri,
+                    token,
                 };
         }
     }
@@ -187,6 +262,8 @@ int main(int argc, char *argv[])
     InitLwsLogger(config.lwsLogLevel);
     InitWsServerLogger(config.logLevel);
     InitServerSessionLogger(config.logLevel);
+    InitWsClientLogger(config.logLevel);
+    InitClientSessionLogger(config.logLevel);
     InitGstRtStreamingLogger(config.logLevel);
     InitMonitorLogger(config.logLevel);
 
