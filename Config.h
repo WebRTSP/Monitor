@@ -16,6 +16,7 @@ struct StreamSource
 {
     enum class Type {
         WebRTSP,
+        Url,
     };
 
     Type type;

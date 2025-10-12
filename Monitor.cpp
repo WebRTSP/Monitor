@@ -19,6 +19,7 @@
 #include "Log.h"
 #include "RecordSession.h"
 #include "Session.h"
+#include "UrlPlayer.h"
 
 
 static const auto Log = MonitorLog;
@@ -103,6 +104,30 @@ static void ClientDisconnected(client::WsClient& client)
     g_source_attach(timeoutSource, g_main_context_get_thread_default());
 }
 
+static void onUrlPlayerEos(UrlPlayer& player, const std::string& url)
+{
+    struct Data {
+        UrlPlayer *const  player;
+        const std::string url;
+    };
+
+    const unsigned reconnectTimeout =
+        g_random_int_range(MIN_RECONNECT_TIMEOUT, MAX_RECONNECT_TIMEOUT + 1);
+    Log()->info("Scheduling playback restart within {} seconds...", reconnectTimeout);
+    GSourcePtr timeoutSourcePtr(g_timeout_source_new_seconds(reconnectTimeout));
+    GSource* timeoutSource = timeoutSourcePtr.get();
+    g_source_set_callback(
+        timeoutSource,
+        [] (gpointer userData) -> gboolean {
+            Data* data = static_cast<Data*>(userData);
+            data->player->play(data->url);
+            return false;
+        },
+        new Data { &player, url },
+        [] (gpointer userData) { delete static_cast<Data*>(userData); });
+    g_source_attach(timeoutSource, g_main_context_get_thread_default());
+}
+
 int MonitorMain(const Config& config)
 {
     if(!config.source)
@@ -115,48 +140,59 @@ int MonitorMain(const Config& config)
     GMainLoopPtr loopPtr(g_main_loop_new(context, FALSE));
     GMainLoop* loop = loopPtr.get();
 
-    if(config.source->localServer) {
-        lws_context_creation_info lwsInfo {};
-        lwsInfo.gid = -1;
-        lwsInfo.uid = -1;
-        lwsInfo.options = LWS_SERVER_OPTION_EXPLICIT_VHOSTS;
-    #if defined(LWS_WITH_GLIB)
-        lwsInfo.options |= LWS_SERVER_OPTION_GLIB;
-        lwsInfo.foreign_loops = reinterpret_cast<void**>(&loop);
-    #endif
+    if(config.source->type == StreamSource::Type::WebRTSP) {
+        if(config.source->localServer) {
+            lws_context_creation_info lwsInfo {};
+            lwsInfo.gid = -1;
+            lwsInfo.uid = -1;
+            lwsInfo.options = LWS_SERVER_OPTION_EXPLICIT_VHOSTS;
+        #if defined(LWS_WITH_GLIB)
+            lwsInfo.options |= LWS_SERVER_OPTION_GLIB;
+            lwsInfo.foreign_loops = reinterpret_cast<void**>(&loop);
+        #endif
 
-        LwsContextPtr lwsContextPtr(lws_create_context(&lwsInfo));
-        lws_context* lwsContext = lwsContextPtr.get();
+            LwsContextPtr lwsContextPtr(lws_create_context(&lwsInfo));
+            lws_context* lwsContext = lwsContextPtr.get();
 
-        signalling::WsServer server(
-            *config.source->localServer,
-            loop,
-            std::bind(
-                CreateServerSession,
-                &config,
-                std::placeholders::_1,
-                std::placeholders::_2));
+            signalling::WsServer server(
+                *config.source->localServer,
+                loop,
+                std::bind(
+                    CreateServerSession,
+                    &config,
+                    std::placeholders::_1,
+                    std::placeholders::_2));
 
-        if(server.init(lwsContext)) {
-            g_main_loop_run(loop);
-            return 0;
+            if(server.init(lwsContext)) {
+                g_main_loop_run(loop);
+                return 0;
+            }
+        } else if(config.source->client) {
+            client::WsClient client(
+                config.source->client.value(),
+                loop,
+                std::bind(
+                    CreateClientSession,
+                    &config,
+                    std::placeholders::_1,
+                    std::placeholders::_2),
+                ClientDisconnected);
+
+            if(client.init()) {
+                client.connect();
+                g_main_loop_run(loop);
+                return 0;
+            }
         }
-    } else if(config.source->client) {
-        client::WsClient client(
-            config.source->client.value(),
-            loop,
-            std::bind(
-                CreateClientSession,
-                &config,
-                std::placeholders::_1,
-                std::placeholders::_2),
-            ClientDisconnected);
+    } else if(config.source->type == StreamSource::Type::Url) {
+        UrlPlayer player(std::bind(onUrlPlayerEos, std::placeholders::_1, config.source->uri));
+        player.play(config.source->uri);
 
-        if(client.init()) {
-            client.connect();
-            g_main_loop_run(loop);
-            return 0;
-        }
+        g_main_loop_run(loop);
+        return 0;
+
+        g_main_loop_run(loop);
+        return 0;
     }
 
     return -1;

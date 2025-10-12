@@ -172,6 +172,7 @@ static bool LoadConfig(Config* config)
             const char* token = "";
             config_setting_lookup_string(sourceConfig, "token", &token);
 
+            StreamSource::Type sourceType = StreamSource::Type::WebRTSP;
             const char* url;
             bool useTls = false;
             gchar* webrtspServer = nullptr;
@@ -197,32 +198,39 @@ static bool LoadConfig(Config* config)
                         useTls = false;
                     } else if(g_strcmp0(scheme, "webrtsps") == 0) {
                         useTls = true;
-                    }
-
-                    if(port == -1) {
-                        webrtspPort = useTls ?
-                            signalling::DEFAULT_WSS_PORT :
-                            signalling::DEFAULT_WS_PORT;
-                    } else if(
-                        port < std::numeric_limits<uint16_t>::min() ||
-                        port > std::numeric_limits<uint16_t>::max()
-                    ) {
-                        Log()->error(
-                            "\"port\" value is invalid. In should be in [{}, {}]",
-                            std::numeric_limits<uint16_t>::min(),
-                            std::numeric_limits<uint16_t>::max());
                     } else {
-                       webrtspPort = port;
+                        sourceType = StreamSource::Type::Url;
                     }
 
-                    if(path[0] == '/')
-                        ++path;
+                    if(sourceType == StreamSource::Type::WebRTSP) {
+                        if(port == -1) {
+                            webrtspPort = useTls ?
+                                signalling::DEFAULT_WSS_PORT :
+                                signalling::DEFAULT_WS_PORT;
+                        } else if(
+                            port < std::numeric_limits<uint16_t>::min() ||
+                            port > std::numeric_limits<uint16_t>::max()
+                        ) {
+                            Log()->error(
+                                "\"port\" value is invalid. In should be in [{}, {}]",
+                                std::numeric_limits<uint16_t>::min(),
+                                std::numeric_limits<uint16_t>::max());
+                        } else {
+                           webrtspPort = port;
+                        }
 
-                    if(path[0] == '\0' || g_strcmp0(path, rtsp::WildcardUri) == 0)
-                        uri = rtsp::WildcardUri;
-                    else {
-                        g_autofree gchar* escapedPath = g_uri_escape_string(path, nullptr, false);
-                        uri = escapedPath;
+                        if(path[0] == '/')
+                            ++path;
+
+                        if(path[0] == '\0' || g_strcmp0(path, rtsp::WildcardUri) == 0)
+                            uri = rtsp::WildcardUri;
+                        else {
+                            g_autofree gchar* escapedPath = g_uri_escape_string(path, nullptr, false);
+                            uri = escapedPath;
+                        }
+                    } else {
+                        sourceType == StreamSource::Type::Url;
+                        uri = url;
                     }
                 } else {
                     Log()->error("URL is invalid");
@@ -230,7 +238,7 @@ static bool LoadConfig(Config* config)
             }
 
             std::optional<client::Config> clientConfig;
-            if(webrtspServer && webrtspPort) {
+            if(sourceType == StreamSource::Type::WebRTSP && webrtspServer && webrtspPort) {
                 clientConfig = client::Config {
                     .server = webrtspServer,
                     .serverPort = webrtspPort,
@@ -240,7 +248,7 @@ static bool LoadConfig(Config* config)
 
             loadedConfig.source =
                 StreamSource {
-                    StreamSource::Type::WebRTSP,
+                    sourceType,
                     {},
                     clientConfig,
                     uri,
