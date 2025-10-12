@@ -159,7 +159,7 @@ static bool LoadConfig(Config* config)
 
             loadedConfig.source =
                 StreamSource {
-                    StreamSource::Type::Record,
+                    StreamSource::Type::WebRTSP,
                     serverConfig,
                     {},
                     {},

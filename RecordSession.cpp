@@ -35,7 +35,10 @@ RecordSession::~RecordSession() {
 
 bool RecordSession::recordEnabled(const std::string& uri) noexcept
 {
-    return _config->source && _config->source->type == StreamSource::Type::Record;
+    return
+        _config->source &&
+        _config->source->type == StreamSource::Type::WebRTSP &&
+        _config->source->localServer;
 }
 
 bool RecordSession::authorizeRecorder(const std::unique_ptr<rtsp::Request>& requestPtr) noexcept
@@ -45,7 +48,7 @@ bool RecordSession::authorizeRecorder(const std::unique_ptr<rtsp::Request>& requ
 
     const StreamSource& source = _config->source.value();
 
-    if(source.type != StreamSource::Type::Record)
+    if(source.type != StreamSource::Type::WebRTSP || !source.localServer)
         return false;
 
     if(source.token.empty())
