@@ -127,15 +127,13 @@ static bool LoadConfig(Config* config)
             }
         }
 
-        config_setting_t* sourceConfig = config_lookup(&config, "source");
-        if(sourceConfig && config_setting_is_group(sourceConfig) != CONFIG_FALSE) {
-            StreamSource::Type sourceType = StreamSource::Type::Record;
-
+        config_setting_t* recordServerConfig = config_lookup(&config, "record-server");
+        if(recordServerConfig && config_setting_is_group(recordServerConfig) != CONFIG_FALSE) {
             const char* token = "";
-            config_setting_lookup_string(sourceConfig, "token", &token);
+            config_setting_lookup_string(recordServerConfig, "token", &token);
 
             int wsPort = signalling::DEFAULT_WS_PORT;
-            if(config_lookup_int(&config, "port", &wsPort) != CONFIG_FALSE) {
+            if(config_setting_lookup_int(recordServerConfig, "port", &wsPort) != CONFIG_FALSE) {
                 if(
                     wsPort < std::numeric_limits<uint16_t>::min() ||
                     wsPort > std::numeric_limits<uint16_t>::max()
@@ -149,7 +147,30 @@ static bool LoadConfig(Config* config)
             }
 
             int loopbackOnly = FALSE;
-            config_lookup_bool(&config, "loopback-only", &loopbackOnly);
+            config_setting_lookup_bool(recordServerConfig, "loopback-only", &loopbackOnly);
+
+            std::optional<signalling::Config> serverConfig;
+            if(wsPort) {
+                serverConfig = signalling::Config {
+                    .bindToLoopbackOnly = loopbackOnly != FALSE,
+                    .port = static_cast<unsigned short>(wsPort),
+                };
+            }
+
+            loadedConfig.source =
+                StreamSource {
+                    StreamSource::Type::Record,
+                    serverConfig,
+                    {},
+                    {},
+                    token,
+                };
+        }
+
+        config_setting_t* sourceConfig = !recordServerConfig ? config_lookup(&config, "source") : nullptr;
+        if(sourceConfig && config_setting_is_group(sourceConfig) != CONFIG_FALSE) {
+            const char* token = "";
+            config_setting_lookup_string(sourceConfig, "token", &token);
 
             const char* url;
             bool useTls = false;
@@ -173,10 +194,8 @@ static bool LoadConfig(Config* config)
                     nullptr))
                 {
                     if(g_strcmp0(scheme, "webrtsp") == 0) {
-                        sourceType = StreamSource::Type::WebRTSP;
                         useTls = false;
                     } else if(g_strcmp0(scheme, "webrtsps") == 0) {
-                        sourceType = StreamSource::Type::WebRTSP;
                         useTls = true;
                     }
 
@@ -210,16 +229,8 @@ static bool LoadConfig(Config* config)
                 }
             }
 
-            std::optional<signalling::Config> serverConfig;
-            if(sourceType == StreamSource::Type::Record && wsPort) {
-                serverConfig = signalling::Config {
-                    .bindToLoopbackOnly = loopbackOnly != FALSE,
-                    .port = static_cast<unsigned short>(wsPort),
-                };
-            }
-
             std::optional<client::Config> clientConfig;
-            if(sourceType == StreamSource::Type::WebRTSP && webrtspServer && webrtspPort) {
+            if(webrtspServer && webrtspPort) {
                 clientConfig = client::Config {
                     .server = webrtspServer,
                     .serverPort = webrtspPort,
@@ -229,8 +240,8 @@ static bool LoadConfig(Config* config)
 
             loadedConfig.source =
                 StreamSource {
-                    sourceType,
-                    serverConfig,
+                    StreamSource::Type::WebRTSP,
+                    {},
                     clientConfig,
                     uri,
                     token,
