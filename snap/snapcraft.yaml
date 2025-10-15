@@ -2,7 +2,7 @@ name: video-monitor
 base: core24
 version: git
 summary: Remote video streams viewer
-description: Shows video from WebRTSP source to default output
+description: Shows video from media URL to default output
 license: GPL-3.0
 grade: stable
 confinement: strict
