@@ -16,6 +16,7 @@ struct StreamSource
 {
     enum class Type {
         WebRTSP,
+        Onvif,
         Url,
     };
 
@@ -26,6 +27,8 @@ struct StreamSource
 
     std::string uri;
     std::string token;
+
+    bool trackMotion; // for ONVIF sources
 };
 
 struct Config

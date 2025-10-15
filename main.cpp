@@ -164,6 +164,7 @@ static bool LoadConfig(Config* config)
                     {},
                     {},
                     token,
+                    false,
                 };
         }
 
@@ -172,32 +173,55 @@ static bool LoadConfig(Config* config)
             const char* token = "";
             config_setting_lookup_string(sourceConfig, "token", &token);
 
+            gboolean trackMotion = FALSE;
+            config_setting_lookup_bool(sourceConfig, "track-motion", &trackMotion);
+
             StreamSource::Type sourceType = StreamSource::Type::WebRTSP;
             const char* url;
             bool useTls = false;
-            gchar* webrtspServer = nullptr;
+            GCharPtr userPtr;
+            GCharPtr passwordPtr;
+            GCharPtr hostPtr;
             unsigned short webrtspPort = 0;
             std::string uri;
-            if(config_setting_lookup_string(sourceConfig, "url", &url) != CONFIG_FALSE) {
+
+            const bool onvif = config_setting_lookup_string(sourceConfig, "onvif", &url) != CONFIG_FALSE;
+            if(
+                onvif ||
+                config_setting_lookup_string(sourceConfig, "url", &url) != CONFIG_FALSE
+            ) {
                 gchar* scheme;
                 gint port;
+                gchar* user;
+                gchar* password;
+                gchar* host;
                 gchar* path;
-                if(g_uri_split(
+                if(g_uri_split_with_user(
                     url,
                     G_URI_FLAGS_NONE,
                     &scheme,
-                    nullptr, // userinfo
-                    &webrtspServer,
+                    &user,
+                    &password,
+                    nullptr, // auth_params
+                    &host,
                     &port,
                     &path,
                     nullptr, // query
                     nullptr, // fragment
                     nullptr))
                 {
+                    GCharPtr schemePtr(scheme);
+                    userPtr.reset(user);
+                    passwordPtr.reset(password);
+                    hostPtr.reset(host);
+                    GCharPtr pathPtr(path);
+
                     if(g_strcmp0(scheme, "webrtsp") == 0) {
                         useTls = false;
                     } else if(g_strcmp0(scheme, "webrtsps") == 0) {
                         useTls = true;
+                    } else if(onvif) {
+                        sourceType = StreamSource::Type::Onvif;
                     } else {
                         sourceType = StreamSource::Type::Url;
                     }
@@ -228,6 +252,8 @@ static bool LoadConfig(Config* config)
                             g_autofree gchar* escapedPath = g_uri_escape_string(path, nullptr, false);
                             uri = escapedPath;
                         }
+                    } else if(sourceType == StreamSource::Type::Onvif) {
+                        uri = url;
                     } else {
                         sourceType == StreamSource::Type::Url;
                         uri = url;
@@ -238,9 +264,9 @@ static bool LoadConfig(Config* config)
             }
 
             std::optional<client::Config> clientConfig;
-            if(sourceType == StreamSource::Type::WebRTSP && webrtspServer && webrtspPort) {
+            if(sourceType == StreamSource::Type::WebRTSP && hostPtr.get() && webrtspPort) {
                 clientConfig = client::Config {
-                    .server = webrtspServer,
+                    .server = hostPtr.get(),
                     .serverPort = webrtspPort,
                     .useTls = useTls,
                 };
@@ -253,6 +279,7 @@ static bool LoadConfig(Config* config)
                     clientConfig,
                     uri,
                     token,
+                    trackMotion != FALSE,
                 };
         }
     }

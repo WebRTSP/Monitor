@@ -20,6 +20,7 @@
 #include "RecordSession.h"
 #include "Session.h"
 #include "UrlPlayer.h"
+#include "OnvifPlayer.h"
 
 
 static const auto Log = MonitorLog;
@@ -128,6 +129,21 @@ static void onUrlPlayerEos(UrlPlayer& player, const std::string& url)
     g_source_attach(timeoutSource, g_main_context_get_thread_default());
 }
 
+static void onOnvifPlayerEos(OnvifPlayer& player)
+{
+    const unsigned reconnectTimeout =
+        g_random_int_range(MIN_RECONNECT_TIMEOUT, MAX_RECONNECT_TIMEOUT + 1);
+    Log()->info("Scheduling playback restart within {} seconds...", reconnectTimeout);
+    GSourcePtr timeoutSourcePtr(g_timeout_source_new_seconds(reconnectTimeout));
+    GSource* timeoutSource = timeoutSourcePtr.get();
+    g_source_set_callback(timeoutSource,
+        [] (gpointer userData) -> gboolean {
+            static_cast<OnvifPlayer*>(userData)->play();
+            return false;
+        }, &player, nullptr);
+    g_source_attach(timeoutSource, g_main_context_get_thread_default());
+}
+
 int MonitorMain(const Config& config)
 {
     if(!config.source)
@@ -190,6 +206,14 @@ int MonitorMain(const Config& config)
 
         g_main_loop_run(loop);
         return 0;
+    } else if(config.source->type == StreamSource::Type::Onvif) {
+        OnvifPlayer player(
+            config.source->uri,
+            {},
+            {},
+            config.source->trackMotion,
+            onOnvifPlayerEos);
+        player.play();
 
         g_main_loop_run(loop);
         return 0;
