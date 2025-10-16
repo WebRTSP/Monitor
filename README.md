@@ -4,6 +4,3 @@
 
 Shows video from configured WebRTSP source to default output.
 Created as part of DIY project of doorbell cam monitor with optional motion detection.
-
-ToDo:
-* direct RTSP and ONVIF cams support
