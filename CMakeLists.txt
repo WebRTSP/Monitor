@@ -9,8 +9,6 @@ if(DEFINED ENV{SNAPCRAFT_PROJECT_NAME})
     set(SNAPCRAFT_BUILD YES)
 endif()
 
-set(ONVIF_SUPPORT OFF CACHE BOOL "ONVIF support disabled")
-
 add_subdirectory(WebRTSP)
 
 find_package(Threads REQUIRED)
@@ -40,7 +38,9 @@ target_link_libraries(${PROJECT_NAME}
     RtspParser
     Signalling
     Client
-    RtStreaming)
+    RtStreaming
+    ONVIF
+)
 
 if(SNAPCRAFT_BUILD)
     install(TARGETS ${PROJECT_NAME} DESTINATION bin)

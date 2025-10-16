@@ -47,6 +47,8 @@ parts:
       - libmicrohttpd-dev
       - libwebsockets-dev
       - libnice-dev
+      - gsoap
+      - libgsoap-dev
     stage-packages:
       - libpulse0
       - libegl-mesa0
@@ -65,6 +67,7 @@ parts:
       - libmicrohttpd12
       - libwebsockets19t64
       - libwebsockets-evlib-glib
+      - libgsoap-2.8.132t64
 
 apps:
   monitor:
