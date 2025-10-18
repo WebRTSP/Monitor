@@ -212,6 +212,7 @@ int MonitorMain(const Config& config)
             {},
             {},
             config.source->trackMotion,
+            config.source->motionPreviewDuration,
             onOnvifPlayerEos);
         player.play();
 

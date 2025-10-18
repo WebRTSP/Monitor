@@ -176,6 +176,9 @@ static bool LoadConfig(Config* config)
             gboolean trackMotion = FALSE;
             config_setting_lookup_bool(sourceConfig, "track-motion", &trackMotion);
 
+            int previewDuration = 0;
+            config_setting_lookup_int(sourceConfig, "motion-preview-time", &previewDuration);
+
             StreamSource::Type sourceType = StreamSource::Type::WebRTSP;
             const char* url;
             bool useTls = false;
@@ -280,6 +283,7 @@ static bool LoadConfig(Config* config)
                     uri,
                     token,
                     trackMotion != FALSE,
+                    std::chrono::seconds(std::max(3, previewDuration)),
                 };
         }
     }

@@ -5,6 +5,7 @@
 #include <optional>
 #include <string>
 #include <memory>
+#include <chrono>
 
 #include "UrlPlayer.h"
 
@@ -26,6 +27,7 @@ public:
         const std::optional<std::string>& username,
         const std::optional<std::string>& password,
         bool trackMotion,
+        std::chrono::seconds motionPreviewDuration,
         const EosCallback&) noexcept;
     ~OnvifPlayer();
 

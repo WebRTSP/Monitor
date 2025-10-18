@@ -12,6 +12,7 @@ source: {
 
   #onvif: "http://ip.cam:8080/"
   #track-motion: false
+  #motion-preview-time: 15 // seconds
 }
 
 webrtc: {

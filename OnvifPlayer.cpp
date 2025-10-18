@@ -70,7 +70,8 @@ struct OnvifPlayer::Private
         const std::string& url,
         const std::optional<std::string>& username,
         const std::optional<std::string>& password,
-        bool trackMotion);
+        bool trackMotion,
+        std::chrono::seconds motionPreviewDuration);
 
     GSourcePtr timeoutAddSeconds(
         guint interval,
@@ -95,7 +96,7 @@ struct OnvifPlayer::Private
     const std::optional<std::string> username;
     const std::optional<std::string> password;
     const bool trackMotion = false;
-    const std::chrono::seconds motionPreviewDuration = std::chrono::seconds(10);
+    const std::chrono::seconds motionPreviewDuration;
 
     GCancellablePtr mediaUrlRequestTaskCancellablePtr;
     GTaskPtr mediaUrlRequestTaskPtr;
@@ -118,13 +119,15 @@ OnvifPlayer::Private::Private(
     const std::string& url,
     const std::optional<std::string>& username,
     const std::optional<std::string>& password,
-    bool trackMotion) :
+    bool trackMotion,
+    std::chrono::seconds motionPreviewDuration) :
     log(MonitorLog()),
     owner(owner),
     url(url),
     username(username),
     password(password),
-    trackMotion(trackMotion)
+    trackMotion(trackMotion),
+    motionPreviewDuration(motionPreviewDuration)
 {
 }
 
@@ -507,12 +510,19 @@ OnvifPlayer::OnvifPlayer(
     const std::optional<std::string>& username,
     const std::optional<std::string>& password,
     bool trackMotion,
+    std::chrono::seconds motionPreviewDuration,
     const EosCallback& eosCallback) noexcept :
     UrlPlayer(
         trackMotion ?
             UrlPlayer::EosCallback() :
             [eosCallback] (UrlPlayer& player) { eosCallback(static_cast<OnvifPlayer&>(player)); }),
-    _p(std::make_unique<OnvifPlayer::Private>(this, url, username, password, trackMotion))
+    _p(std::make_unique<OnvifPlayer::Private>(
+        this,
+        url,
+        username,
+        password,
+        trackMotion,
+        motionPreviewDuration))
 {
 }
 

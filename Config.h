@@ -29,6 +29,7 @@ struct StreamSource
     std::string token;
 
     bool trackMotion; // for ONVIF sources
+    std::chrono::seconds motionPreviewDuration = std::chrono::seconds(15);
 };
 
 struct Config
