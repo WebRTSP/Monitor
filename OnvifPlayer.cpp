@@ -85,7 +85,7 @@ struct OnvifPlayer::Private
     void requestMotionEvent() noexcept;
     void onMotionEvent(gboolean isMotion) noexcept;
 
-    void startRecordStopTimeout() noexcept;
+    void startPreviewStopTimeout() noexcept;
 
     std::shared_ptr<spdlog::logger> log;
 
@@ -95,7 +95,7 @@ struct OnvifPlayer::Private
     const std::optional<std::string> username;
     const std::optional<std::string> password;
     const bool trackMotion = false;
-    const std::chrono::seconds motionRecordDuration = std::chrono::seconds(10);
+    const std::chrono::seconds motionPreviewDuration = std::chrono::seconds(10);
 
     GCancellablePtr mediaUrlRequestTaskCancellablePtr;
     GTaskPtr mediaUrlRequestTaskPtr;
@@ -107,7 +107,7 @@ struct OnvifPlayer::Private
     GCancellablePtr motionEventRequestTaskCancellablePtr;
     GTaskPtr motionEventRequestTaskPtr;
 
-    GSourcePtr recordStopTimeoutSource;
+    GSourcePtr previewStopTimeoutSource;
 };
 
 GQuark OnvifPlayer::Private::SoapDomain = g_quark_from_static_string("OnvifPlayer::SOAP");
@@ -469,34 +469,34 @@ void OnvifPlayer::Private::onMotionEvent(gboolean isMotion) noexcept
         if(!owner->isPlaying())
             owner->UrlPlayer::play(mediaUris->streamUri);
 
-        startRecordStopTimeout();
+        startPreviewStopTimeout();
     }
 
     startMotionEventRequestTimeout();
 }
 
-void OnvifPlayer::Private::startRecordStopTimeout() noexcept
+void OnvifPlayer::Private::startPreviewStopTimeout() noexcept
 {
-    if(recordStopTimeoutSource) {
-        g_source_destroy(recordStopTimeoutSource.get());
-        recordStopTimeoutSource.reset();
+    if(previewStopTimeoutSource) {
+        g_source_destroy(previewStopTimeoutSource.get());
+        previewStopTimeoutSource.reset();
     }
 
     auto timeoutFunc =
         [] (gpointer userData) -> gboolean {
             Private* p = static_cast<Private*>(userData);
 
-            MonitorLog()->info("Stopping record by timeout...");
+            MonitorLog()->info("Stopping preview by timeout...");
 
             p->owner->stop();
 
-            p->recordStopTimeoutSource = 0;
+            p->previewStopTimeoutSource = 0;
             return FALSE;
         };
 
-    recordStopTimeoutSource =
+    previewStopTimeoutSource =
         timeoutAddSeconds(
-            motionRecordDuration.count(),
+            motionPreviewDuration.count(),
             timeoutFunc,
             this);
 }
@@ -526,8 +526,8 @@ OnvifPlayer::~OnvifPlayer()
         g_source_destroy(_p->moitionEventRequestTimeoutSource.get());
     }
 
-    if(_p->recordStopTimeoutSource) {
-        g_source_destroy(_p->recordStopTimeoutSource.get());
+    if(_p->previewStopTimeoutSource) {
+        g_source_destroy(_p->previewStopTimeoutSource.get());
     }
 }
 
