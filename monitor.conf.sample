@@ -1,7 +1,7 @@
 #record-server: {
-#  token: "token",
-##  port: 5554,
-##  loopback-only: false,
+#  token: "token"
+#  port: 5554
+#  loopback-only: false
 #}
 
 source: {
