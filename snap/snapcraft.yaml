@@ -2,7 +2,17 @@ name: video-monitor
 base: core24
 version: git
 summary: Remote video streams viewer
-description: Shows video from media URL to default output
+description: |
+    Shows video from WebRTSP source (like https://snapcraft.io/rtsp-to-webrtsp or https://snapcraft.io/webrtsp-record-streamer) to default output.
+    Mostly intended for DIY projects like doorbell cam with optional motion detection.
+
+    **Some hints:**
+    * **Config file location:** /var/snap/video-monitor/common/monitor.conf
+    * **How to view logs in realtime**: `sudo snap logs video-monitor -f`
+    * **How to use it with RTSP source: ** https://github.com/WebRTSP/Monitor#how-to-use-it-with-rtsp-source
+    * **How to use it with ONVIF source with optional motion detection:** https://github.com/WebRTSP/Monitor#how-to-use-it-with-onvif-source-with-optional-motion-detection
+    * **How to use it with WebRTSP source with optional motion detection:** https://github.com/WebRTSP/Monitor#how-to-use-it-as-webrtsp-client-with-optional-motion-detection-on-server-side
+    * **How to use it as WebRTSP server with optional motion detection:** https://github.com/WebRTSP/Monitor#how-to-use-it-as-webrtsp-record-server-with-optional-motion-detection
 license: GPL-3.0
 grade: stable
 confinement: strict
