@@ -15,13 +15,8 @@
 
 namespace {
 
-struct RequestMotionEventTaskData
-{
-    const std::string url;
-    const std::optional<std::string> username;
-    const std::optional<std::string> password;
-    const std::string mediaEndpoint;
-};
+const char *const PullSubscriptionDuration = "PT1M"; // 1 minute, relative
+constexpr std::chrono::seconds PullSubscriptionRefreshInterval = std::chrono::seconds(30);
 
 void AddAuth(
     struct soap* soap,
@@ -107,6 +102,8 @@ struct OnvifPlayer::Private
 
     GCancellablePtr motionEventRequestTaskCancellablePtr;
     GTaskPtr motionEventRequestTaskPtr;
+    std::string motionEventSubscriptionEndpoint; // not thread safe, to use only in motionEventRequestTask
+    std::chrono::steady_clock::time_point motionEventSubscriptionTime; // ^^^ the same ^^^
 
     GSourcePtr previewStopTimeoutSource;
 };
@@ -281,13 +278,59 @@ void OnvifPlayer::Private::requestMotionEventTaskFunc(
 {
     soap_status status;
 
-    const RequestMotionEventTaskData& data = *static_cast<RequestMotionEventTaskData*>(taskData);
+    OnvifPlayer::Private& self = *static_cast<OnvifPlayer::Private*>(taskData);
 
-    PullPointSubscriptionBindingProxy pullProxy(data.mediaEndpoint.c_str());
+    bool renewRequired = true;
+    if(self.motionEventSubscriptionEndpoint.empty()) {
+        PullPointSubscriptionBindingProxy subscribeProxy(self.mediaUris->mediaEndpointUri.c_str());
+
+        _tev__CreatePullPointSubscription ceatePullPointSubscription;
+        std::string InitialTerminationTime = PullSubscriptionDuration;
+        ceatePullPointSubscription.InitialTerminationTime = &InitialTerminationTime;
+        _tev__CreatePullPointSubscriptionResponse createPullPointSubscriptionResponse;
+        AddAuth(subscribeProxy.soap, self.username, self.password);
+        status = subscribeProxy.CreatePullPointSubscription(
+            &ceatePullPointSubscription,
+            createPullPointSubscriptionResponse);
+        if(status != SOAP_OK) {
+            const char* faultString = soap_fault_string(subscribeProxy.soap);
+            GError* error = g_error_new_literal(SoapDomain, status, faultString ? faultString : "CreatePullPointSubscription failed");
+            g_task_return_error(task, error);
+            return;
+        }
+
+        self.motionEventSubscriptionEndpoint = createPullPointSubscriptionResponse.SubscriptionReference.Address;
+        self.motionEventSubscriptionTime = std::chrono::steady_clock::now();
+        renewRequired = false;
+    } else {
+        const auto timeElapsed = std::chrono::steady_clock::now() - self.motionEventSubscriptionTime;
+        renewRequired = timeElapsed > PullSubscriptionRefreshInterval;
+    }
+
+    PullPointSubscriptionBindingProxy pullProxy(self.motionEventSubscriptionEndpoint.c_str());
+
+    if(renewRequired) {
+        _wsnt__Renew renew;
+        std::string TerminationTime = PullSubscriptionDuration;
+        renew.TerminationTime = &TerminationTime;
+        _wsnt__RenewResponse renewResponse;
+        AddAuth(pullProxy.soap, self.username, self.password);
+        status = pullProxy.Renew(&renew, renewResponse);
+        if(status != SOAP_OK) {
+            self.motionEventSubscriptionEndpoint.clear();
+
+            const char* faultString = soap_fault_string(pullProxy.soap);
+            GError* error = g_error_new_literal(SoapDomain, status, faultString ? faultString : "Renew failed");
+            g_task_return_error(task, error);
+            return;
+        }
+
+        self.motionEventSubscriptionTime = std::chrono::steady_clock::now();
+    }
 
     _tev__PullMessages pullMessages;
     _tev__PullMessagesResponse pullMessagesResponse;
-    AddAuth(pullProxy.soap, data.username, data.password);
+    AddAuth(pullProxy.soap, self.username, self.password);
     status = pullProxy.PullMessages(&pullMessages, pullMessagesResponse);
     if(status != SOAP_OK) {
         const char* faultString = soap_fault_string(pullProxy.soap);
@@ -453,13 +496,8 @@ void OnvifPlayer::Private::requestMotionEvent() noexcept
     g_task_set_return_on_cancel(task, true);
     g_task_set_task_data(
         task,
-        new RequestMotionEventTaskData {
-            url,
-            username,
-            password,
-            mediaUris->mediaEndpointUri
-        },
-        [] (gpointer userData) { delete static_cast<RequestMotionEventTaskData*>(userData); });
+        this,
+        nullptr);
 
     g_task_run_in_thread(task, requestMotionEventTaskFunc);
 }
