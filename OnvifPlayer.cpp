@@ -399,16 +399,16 @@ void OnvifPlayer::Private::requestMediaUris() noexcept
                         reinterpret_cast<OnvifPlayer::Private*>(userData);
                     self->owner->onEos();
                 }
-            }
-
-            OnvifPlayer::Private* self =
-                reinterpret_cast<OnvifPlayer::Private*>(userData);
-
-            if(mediaUrisPtr) {
-                // no error and not cancelled yet
-                self->onMediaUris(mediaUrisPtr);
             } else {
-                self->owner->onEos();
+                // no error and not cancelled yet
+                OnvifPlayer::Private* self =
+                    reinterpret_cast<OnvifPlayer::Private*>(userData);
+
+                if(mediaUrisPtr) {
+                    self->onMediaUris(mediaUrisPtr);
+                } else {
+                    self->owner->onEos();
+                }
             }
         };
 
