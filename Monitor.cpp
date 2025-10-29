@@ -90,15 +90,23 @@ static std::unique_ptr<rtsp::Session> CreateClientSession (
         sendRequest, sendResponse);
 }
 
+GSourcePtr reconnectTimeoutSourcePtr;
+
 static void ClientDisconnected(client::WsClient& client)
 {
+    if(reconnectTimeoutSourcePtr) {
+        Log()->warn("Trying to create new reconnect timout source while previous one is still active");
+        return;
+    }
+
     const unsigned reconnectTimeout =
         g_random_int_range(MIN_RECONNECT_TIMEOUT, MAX_RECONNECT_TIMEOUT + 1);
     Log()->info("Scheduling reconnect within {} seconds...", reconnectTimeout);
-    GSourcePtr timeoutSourcePtr(g_timeout_source_new_seconds(reconnectTimeout));
-    GSource* timeoutSource = timeoutSourcePtr.get();
+    reconnectTimeoutSourcePtr.reset(g_timeout_source_new_seconds(reconnectTimeout));
+    GSource* timeoutSource = reconnectTimeoutSourcePtr.get();
     g_source_set_callback(timeoutSource,
         [] (gpointer userData) -> gboolean {
+            reconnectTimeoutSourcePtr.reset();
             static_cast<client::WsClient*>(userData)->connect();
             return false;
         }, &client, nullptr);
@@ -107,6 +115,11 @@ static void ClientDisconnected(client::WsClient& client)
 
 static void onUrlPlayerEos(UrlPlayer& player, const std::string& url)
 {
+    if(reconnectTimeoutSourcePtr) {
+        Log()->warn("Trying to create new reconnect timout source while previous one is still active");
+        return;
+    }
+
     struct Data {
         UrlPlayer *const  player;
         const std::string url;
@@ -115,11 +128,12 @@ static void onUrlPlayerEos(UrlPlayer& player, const std::string& url)
     const unsigned reconnectTimeout =
         g_random_int_range(MIN_RECONNECT_TIMEOUT, MAX_RECONNECT_TIMEOUT + 1);
     Log()->info("Scheduling playback restart within {} seconds...", reconnectTimeout);
-    GSourcePtr timeoutSourcePtr(g_timeout_source_new_seconds(reconnectTimeout));
-    GSource* timeoutSource = timeoutSourcePtr.get();
+    reconnectTimeoutSourcePtr.reset(g_timeout_source_new_seconds(reconnectTimeout));
+    GSource* timeoutSource = reconnectTimeoutSourcePtr.get();
     g_source_set_callback(
         timeoutSource,
         [] (gpointer userData) -> gboolean {
+            reconnectTimeoutSourcePtr.reset();
             Data* data = static_cast<Data*>(userData);
             data->player->play(data->url);
             return false;
@@ -131,13 +145,19 @@ static void onUrlPlayerEos(UrlPlayer& player, const std::string& url)
 
 static void onOnvifPlayerEos(OnvifPlayer& player)
 {
+    if(reconnectTimeoutSourcePtr) {
+        Log()->warn("Trying to create new reconnect timout source while previous one is still active");
+        return;
+    }
+
     const unsigned reconnectTimeout =
         g_random_int_range(MIN_RECONNECT_TIMEOUT, MAX_RECONNECT_TIMEOUT + 1);
     Log()->info("Scheduling playback restart within {} seconds...", reconnectTimeout);
-    GSourcePtr timeoutSourcePtr(g_timeout_source_new_seconds(reconnectTimeout));
-    GSource* timeoutSource = timeoutSourcePtr.get();
+    reconnectTimeoutSourcePtr.reset(g_timeout_source_new_seconds(reconnectTimeout));
+    GSource* timeoutSource = reconnectTimeoutSourcePtr.get();
     g_source_set_callback(timeoutSource,
         [] (gpointer userData) -> gboolean {
+            reconnectTimeoutSourcePtr.reset();
             static_cast<OnvifPlayer*>(userData)->play();
             return false;
         }, &player, nullptr);
