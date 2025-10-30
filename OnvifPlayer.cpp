@@ -66,12 +66,15 @@ struct OnvifPlayer::Private
         const std::optional<std::string>& username,
         const std::optional<std::string>& password,
         bool trackMotion,
-        std::chrono::seconds motionPreviewDuration);
+        std::chrono::seconds motionPreviewDuration,
+        const EosCallback&);
 
     GSourcePtr timeoutAddSeconds(
         guint interval,
         GSourceFunc callback,
         gpointer data);
+
+    void onError() noexcept;
 
     void requestMediaUris() noexcept;
     void onMediaUris(std::unique_ptr<MediaUris>&) noexcept;
@@ -92,6 +95,7 @@ struct OnvifPlayer::Private
     const std::optional<std::string> password;
     const bool trackMotion = false;
     const std::chrono::seconds motionPreviewDuration;
+    const EosCallback eosCallback;
 
     GCancellablePtr mediaUrlRequestTaskCancellablePtr;
     GTaskPtr mediaUrlRequestTaskPtr;
@@ -117,14 +121,16 @@ OnvifPlayer::Private::Private(
     const std::optional<std::string>& username,
     const std::optional<std::string>& password,
     bool trackMotion,
-    std::chrono::seconds motionPreviewDuration) :
+    std::chrono::seconds motionPreviewDuration,
+    const EosCallback& eosCallback) :
     log(MonitorLog()),
     owner(owner),
     url(url),
     username(username),
     password(password),
     trackMotion(trackMotion),
-    motionPreviewDuration(motionPreviewDuration)
+    motionPreviewDuration(motionPreviewDuration),
+    eosCallback(eosCallback)
 {
 }
 
@@ -142,6 +148,12 @@ GSourcePtr OnvifPlayer::Private::timeoutAddSeconds(
     g_source_attach(source, threadContext ? threadContext : mainContext);
 
     return GSourcePtr(source);
+}
+
+void OnvifPlayer::Private::onError() noexcept
+{
+    if(eosCallback)
+        eosCallback(*owner);
 }
 
 void OnvifPlayer::Private::requestMediaUrisTaskFunc(
@@ -397,7 +409,7 @@ void OnvifPlayer::Private::requestMediaUris() noexcept
                     // has error but not cancelled (i.e. owner is still available)
                     OnvifPlayer::Private* self =
                         reinterpret_cast<OnvifPlayer::Private*>(userData);
-                    self->owner->onEos();
+                    self->onError();
                 }
             } else {
                 // no error and not cancelled yet
@@ -407,7 +419,7 @@ void OnvifPlayer::Private::requestMediaUris() noexcept
                 if(mediaUrisPtr) {
                     self->onMediaUris(mediaUrisPtr);
                 } else {
-                    self->owner->onEos();
+                    self->onError();
                 }
             }
         };
@@ -434,7 +446,7 @@ void OnvifPlayer::Private::onMediaUris(std::unique_ptr<MediaUris>& mediaUris) no
         startMotionEventRequestTimeout();
     } else {
         if(!owner->UrlPlayer::play(this->mediaUris->streamUri))
-            owner->onEos();
+            onError();
     }
 }
 
@@ -478,7 +490,7 @@ void OnvifPlayer::Private::requestMotionEvent() noexcept
                     // has error but not cancelled (i.e. owner is still available)
                     OnvifPlayer::Private* self =
                         reinterpret_cast<OnvifPlayer::Private*>(userData);
-                    self->owner->onEos();
+                    self->startMotionEventRequestTimeout();
                 }
             } else {
                 // no error and not cancelled yet
@@ -560,7 +572,8 @@ OnvifPlayer::OnvifPlayer(
         username,
         password,
         trackMotion,
-        motionPreviewDuration))
+        motionPreviewDuration,
+        eosCallback))
 {
 }
 

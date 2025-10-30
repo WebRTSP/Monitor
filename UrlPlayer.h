@@ -17,7 +17,7 @@ public:
     bool play(const std::string& url);
     void stop();
 
-protected:
+private:
     void onEos();
 
 private:
