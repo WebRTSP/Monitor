@@ -55,7 +55,7 @@ gboolean UrlPlayer::Private::onBusMessage(GstMessage* message)
     return TRUE;
 }
 
-UrlPlayer::UrlPlayer(const EosCallback& eosCallback):
+UrlPlayer::UrlPlayer(const EosCallback& eosCallback) noexcept:
     _p(std::make_unique<UrlPlayer::Private>(this, eosCallback))
 {
 }
@@ -65,18 +65,18 @@ UrlPlayer::~UrlPlayer()
 }
 
 
-void UrlPlayer::onEos()
+void UrlPlayer::onEos() noexcept
 {
     if(_p->eosCallback)
         _p->eosCallback(*this);
 }
 
-bool UrlPlayer::isPlaying() const
+bool UrlPlayer::isPlaying() const noexcept
 {
     return !!_p->pipelinePtr;
 }
 
-bool UrlPlayer::play(const std::string& url)
+bool UrlPlayer::play(const std::string& url) noexcept
 {
     stop();
 
@@ -113,7 +113,7 @@ bool UrlPlayer::play(const std::string& url)
     return true;
 }
 
-void UrlPlayer::stop()
+void UrlPlayer::stop() noexcept
 {
     if(!_p->pipelinePtr)
         return;

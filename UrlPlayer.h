@@ -10,15 +10,15 @@ class UrlPlayer
 public:
     typedef std::function<void (UrlPlayer&)> EosCallback;
 
-    UrlPlayer(const EosCallback& eosCallback);
+    UrlPlayer(const EosCallback& eosCallback) noexcept;
     ~UrlPlayer();
 
-    bool isPlaying() const;
-    bool play(const std::string& url);
-    void stop();
+    bool isPlaying() const noexcept;
+    bool play(const std::string& url) noexcept;
+    void stop() noexcept;
 
 private:
-    void onEos();
+    void onEos() noexcept;
 
 private:
     struct Private;
