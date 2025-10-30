@@ -1,5 +1,7 @@
 #include "OnvifPlayer.h"
 
+#include <algorithm>
+
 #include <gsoap/plugin/wsseapi.h>
 
 #include "ONVIF/DeviceBinding.nsmap"
@@ -79,7 +81,7 @@ struct OnvifPlayer::Private
     void requestMediaUris() noexcept;
     void onMediaUris(std::unique_ptr<MediaUris>&) noexcept;
 
-    void startMotionEventRequestTimeout() noexcept;
+    void startMotionEventRequestTimeout(bool increaseDelay = false) noexcept;
 
     void requestMotionEvent() noexcept;
     void onMotionEvent(gboolean isMotion) noexcept;
@@ -103,6 +105,7 @@ struct OnvifPlayer::Private
     std::unique_ptr<MediaUris> mediaUris;
 
     GSourcePtr moitionEventRequestTimeoutSource;
+    unsigned lastMoitionEventRequestTimeout = MOTION_EVENT_REQUEST_TIMEOUT;
 
     GCancellablePtr motionEventRequestTaskCancellablePtr;
     GTaskPtr motionEventRequestTaskPtr;
@@ -450,7 +453,7 @@ void OnvifPlayer::Private::onMediaUris(std::unique_ptr<MediaUris>& mediaUris) no
     }
 }
 
-void OnvifPlayer::Private::startMotionEventRequestTimeout() noexcept
+void OnvifPlayer::Private::startMotionEventRequestTimeout(bool increaseDelay) noexcept
 {
     assert(!moitionEventRequestTimeoutSource);
 
@@ -464,9 +467,13 @@ void OnvifPlayer::Private::startMotionEventRequestTimeout() noexcept
             return FALSE;
         };
 
+    lastMoitionEventRequestTimeout = increaseDelay ?
+        std::min(16u, lastMoitionEventRequestTimeout * 2) :
+        MOTION_EVENT_REQUEST_TIMEOUT;
+
     moitionEventRequestTimeoutSource =
         timeoutAddSeconds(
-            MOTION_EVENT_REQUEST_TIMEOUT,
+            lastMoitionEventRequestTimeout,
             timeoutFunc,
             this);
 }
@@ -490,7 +497,7 @@ void OnvifPlayer::Private::requestMotionEvent() noexcept
                     // has error but not cancelled (i.e. owner is still available)
                     OnvifPlayer::Private* self =
                         reinterpret_cast<OnvifPlayer::Private*>(userData);
-                    self->startMotionEventRequestTimeout();
+                    self->startMotionEventRequestTimeout(true);
                 }
             } else {
                 // no error and not cancelled yet
