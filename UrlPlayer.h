@@ -10,7 +10,10 @@ class UrlPlayer
 public:
     typedef std::function<void (UrlPlayer&)> EosCallback;
 
-    UrlPlayer(const EosCallback& eosCallback) noexcept;
+    UrlPlayer(
+        bool showVideoStats,
+        bool sync,
+        const EosCallback& eosCallback) noexcept;
     ~UrlPlayer();
 
     bool isPlaying() const noexcept;
@@ -23,4 +26,7 @@ private:
 private:
     struct Private;
     std::unique_ptr<Private> _p;
+
+    const bool _showVideoStats;
+    const bool _sync;
 };

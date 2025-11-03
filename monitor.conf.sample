@@ -15,7 +15,6 @@ source: {
   #motion-preview-time: 15 // seconds
 }
 
-// has meaning only for WebRTSP sources atm
 video-output: {
 #  show-stats: false
 #  sync: false

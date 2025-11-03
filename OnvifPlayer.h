@@ -28,6 +28,8 @@ public:
         const std::optional<std::string>& password,
         bool trackMotion,
         std::chrono::seconds motionPreviewDuration,
+        bool showVideoStats,
+        bool sync,
         const EosCallback&) noexcept;
     ~OnvifPlayer();
 

@@ -225,7 +225,13 @@ int MonitorMain(const Config& config)
             }
         }
     } else if(config.source->type == StreamSource::Type::Url) {
-        UrlPlayer player(std::bind(onUrlPlayerEos, std::placeholders::_1, config.source->uri));
+        UrlPlayer player(
+            config.videoOutput.showStats,
+            config.videoOutput.sync,
+            std::bind(
+                onUrlPlayerEos,
+                std::placeholders::_1,
+                config.source->uri));
         player.play(config.source->uri);
 
         g_main_loop_run(loop);
@@ -237,6 +243,8 @@ int MonitorMain(const Config& config)
             {},
             config.source->trackMotion,
             config.source->motionPreviewDuration,
+            config.videoOutput.showStats,
+            config.videoOutput.sync,
             onOnvifPlayerEos);
         player.play();
 

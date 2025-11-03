@@ -568,8 +568,12 @@ OnvifPlayer::OnvifPlayer(
     const std::optional<std::string>& password,
     bool trackMotion,
     std::chrono::seconds motionPreviewDuration,
+    bool showVideoStats,
+    bool sync,
     const EosCallback& eosCallback) noexcept :
     UrlPlayer(
+        showVideoStats,
+        sync,
         trackMotion ?
             UrlPlayer::EosCallback() :
             [eosCallback] (UrlPlayer& player) { eosCallback(static_cast<OnvifPlayer&>(player)); }),

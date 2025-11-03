@@ -55,8 +55,13 @@ gboolean UrlPlayer::Private::onBusMessage(GstMessage* message)
     return TRUE;
 }
 
-UrlPlayer::UrlPlayer(const EosCallback& eosCallback) noexcept:
-    _p(std::make_unique<UrlPlayer::Private>(this, eosCallback))
+UrlPlayer::UrlPlayer(
+    bool showVideoStats,
+    bool sync,
+    const EosCallback& eosCallback) noexcept:
+    _p(std::make_unique<UrlPlayer::Private>(this, eosCallback)),
+    _showVideoStats(showVideoStats),
+    _sync(sync)
 {
 }
 
@@ -93,6 +98,14 @@ bool UrlPlayer::play(const std::string& url) noexcept
         _p->log->error("Failed to create \"playbin3\" element");
         return false;
     }
+
+    GstElementPtr sinkPtr(_showVideoStats ?
+        gst_element_factory_make("fpsdisplaysink", nullptr) :
+        gst_element_factory_make("autovideosink", nullptr));
+    GstElement* sink = sinkPtr.get();
+    g_object_set(sink, "sync", _sync ? TRUE : FALSE, nullptr);
+
+    g_object_set(playbin, "video-sink", sinkPtr.get(), nullptr);
 
     gst_bin_add_many(GST_BIN(pipeline), playbinPtr.release(), nullptr);
 
