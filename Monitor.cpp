@@ -44,7 +44,9 @@ CreateRecordPeer(
     const Config* config,
     const std::string& uri)
 {
-    return std::make_unique<GstClient>();
+    return std::make_unique<GstClient>(
+        config->videoOutput.showStats,
+        config->videoOutput.sync);
 }
 
 static std::unique_ptr<ServerSession> CreateServerSession(
@@ -76,7 +78,9 @@ static void OnRecorderDisconnected(const std::string& uri)
 static std::unique_ptr<WebRTCPeer>
 CreateClientPeer(const Config* config)
 {
-    return std::make_unique<GstClient>();
+    return std::make_unique<GstClient>(
+        config->videoOutput.showStats,
+        config->videoOutput.sync);
 }
 
 static std::unique_ptr<rtsp::Session> CreateClientSession (

@@ -286,6 +286,17 @@ static bool LoadConfig(Config* config)
                     std::chrono::seconds(std::max(3, previewDuration)),
                 };
         }
+
+        config_setting_t* videoOutputConfig = config_lookup(&config, "video-output");
+        if(videoOutputConfig && config_setting_is_group(videoOutputConfig) != CONFIG_FALSE) {
+            gboolean showStats = FALSE;
+            if(config_setting_lookup_bool(videoOutputConfig, "show-stats", &showStats) != CONFIG_FALSE)
+                loadedConfig.videoOutput.showStats = showStats != FALSE;
+
+            gboolean sync = FALSE;
+            if(config_setting_lookup_bool(videoOutputConfig, "sync", &sync) != CONFIG_FALSE)
+                loadedConfig.videoOutput.sync = sync != FALSE;
+        }
     }
 
     bool success = true;
