@@ -74,6 +74,8 @@ void UrlPlayer::onEos() noexcept
 {
     if(_p->eosCallback)
         _p->eosCallback(*this);
+
+    stop();
 }
 
 bool UrlPlayer::isPlaying() const noexcept
