@@ -7,12 +7,12 @@
 source: {
   // "webrtsp://" for plain WebSocket connection (ws://)
   // "webrtsps://" for Secure WebSocket connection (wss://)
-  #url: "webrtsps://ipcam.stream/%C5%A0trbsk%C3%A9%20pleso"
+#  url: "webrtsps://ipcam.stream/%C5%A0trbsk%C3%A9%20pleso"
   url: "rtsp://stream.strba.sk:1935/strba/VYHLAD_JAZERO.stream"
 
-  #onvif: "http://ip.cam:8080/"
-  #track-motion: false
-  #motion-preview-time: 15 // seconds
+#  onvif: "http://ip.cam:8080/"
+#  track-motion: false
+#  motion-preview-time: 15 // seconds
 }
 
 video-output: {
@@ -29,6 +29,6 @@ webrtc: {
 }
 
 debug: {
-  log-level: 5
+#  log-level: 3
 #  lws-log-level: 2
 }
