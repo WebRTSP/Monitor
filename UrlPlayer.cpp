@@ -105,7 +105,7 @@ bool UrlPlayer::play(const std::string& url) noexcept
     GstElement* sink = sinkPtr.get();
     g_object_set(sink, "sync", _sync ? TRUE : FALSE, nullptr);
 
-    g_object_set(playbin, "video-sink", sinkPtr.get(), nullptr);
+    g_object_set(playbin, "video-sink", sinkPtr.release(), nullptr);
 
     gst_bin_add_many(GST_BIN(pipeline), playbinPtr.release(), nullptr);
 
