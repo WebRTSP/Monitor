@@ -29,8 +29,6 @@ environment:
   GST_PLUGIN_SCANNER: $SNAP/usr/lib/${CRAFT_ARCH_TRIPLET_BUILD_FOR}/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
 
 layout:
-  /etc/glvnd:
-    symlink: $SNAP/etc/glvnd
   /usr/share/glvnd:
     symlink: $SNAP/usr/share/glvnd
   /usr/lib/${CRAFT_ARCH_TRIPLET_BUILD_FOR}/dri:
