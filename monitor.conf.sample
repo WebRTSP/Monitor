@@ -17,7 +17,7 @@ source: {
 
 video-output: {
 #  show-stats: false
-#  sync: false
+#  sync: true
 }
 
 webrtc: {

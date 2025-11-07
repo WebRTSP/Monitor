@@ -293,7 +293,7 @@ static bool LoadConfig(Config* config)
             if(config_setting_lookup_bool(videoOutputConfig, "show-stats", &showStats) != CONFIG_FALSE)
                 loadedConfig.videoOutput.showStats = showStats != FALSE;
 
-            gboolean sync = FALSE;
+            gboolean sync = TRUE;
             if(config_setting_lookup_bool(videoOutputConfig, "sync", &sync) != CONFIG_FALSE)
                 loadedConfig.videoOutput.sync = sync != FALSE;
         }

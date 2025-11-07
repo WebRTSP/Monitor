@@ -35,7 +35,7 @@ struct StreamSource
 struct VideoOutput
 {
     bool showStats = false;
-    bool sync = false;
+    bool sync = true;
 };
 
 struct Config
