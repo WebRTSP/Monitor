@@ -3,7 +3,7 @@ base: core24
 version: git
 summary: Remote video streams viewer
 description: |
-    Shows video from WebRTSP source (like https://snapcraft.io/rtsp-to-webrtsp or https://snapcraft.io/webrtsp-record-streamer) to default output.
+    Shows video from WebRTSP/RTSP/ONVIF source to default (typically HDMI) output.
     Mostly intended for DIY projects like doorbell cam with optional motion detection.
 
     **Some hints:**
