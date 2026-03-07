@@ -13,6 +13,8 @@
 
 #include "RtspParser/Common.h"
 
+#include "RtspSession/Log.h"
+
 #include "RtStreaming/GstRtStreaming/Log.h"
 #include "RtStreaming/GstRtStreaming/LibGst.h"
 

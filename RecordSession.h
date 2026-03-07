@@ -3,12 +3,12 @@
 #include <map>
 #include <unordered_map>
 
-#include "Signalling/ServerSession.h"
+#include "RtspSession/ServerSession.h"
 
 #include "Config.h"
 
 
-class RecordSession : public ServerSession
+class RecordSession : public rtsp::ServerSession
 {
 public:
     RecordSession(

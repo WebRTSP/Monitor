@@ -6,7 +6,6 @@
 #include "Signalling/WsServer.h"
 
 #include "WebRTSP/Client/WsClient.h"
-#include "WebRTSP/Client/ClientSession.h"
 
 #include "RtStreaming/GstRtStreaming/GstTestStreamer.h"
 #include "RtStreaming/GstRtStreaming/GstReStreamer.h"
@@ -49,7 +48,7 @@ CreateRecordPeer(
         config->videoOutput.sync);
 }
 
-static std::unique_ptr<ServerSession> CreateServerSession(
+static std::unique_ptr<rtsp::ServerSession> CreateServerSession(
     const Config* config,
     const rtsp::Session::SendRequest& sendRequest,
     const rtsp::Session::SendResponse& sendResponse)

@@ -1,11 +1,11 @@
 #pragma once
 
-#include "Client/ClientSession.h"
+#include "RtspSession/ClientSession.h"
 
 #include "Config.h"
 
 
-class Session: public ClientSession
+class Session: public rtsp::ClientSession
 {
 public:
     Session(
