@@ -255,7 +255,7 @@ static bool LoadConfig(Config* config)
                         if(path[0] == '\0' || g_strcmp0(path, rtsp::WildcardUri) == 0)
                             uri = rtsp::WildcardUri;
                         else {
-                            g_autofree gchar* escapedPath = g_uri_escape_string(path, nullptr, false);
+                            g_autofree gchar* escapedPath = g_uri_escape_string(path, "/", false);
                             uri = escapedPath;
                         }
 
