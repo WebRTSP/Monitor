@@ -231,7 +231,8 @@ static bool LoadConfig(Config* config)
                         sourceType = StreamSource::Type::Url;
                     }
 
-                    if(sourceType == StreamSource::Type::WebRTSP) {
+                    switch(sourceType) {
+                    case StreamSource::Type::WebRTSP:
                         if(port == -1) {
                             webrtspPort = useTls ?
                                 signalling::DEFAULT_WSS_PORT :
@@ -257,11 +258,12 @@ static bool LoadConfig(Config* config)
                             g_autofree gchar* escapedPath = g_uri_escape_string(path, nullptr, false);
                             uri = escapedPath;
                         }
-                    } else if(sourceType == StreamSource::Type::Onvif) {
+
+                        break;
+                    case StreamSource::Type::Onvif:
+                    case StreamSource::Type::Url:
                         uri = url;
-                    } else {
-                        sourceType == StreamSource::Type::Url;
-                        uri = url;
+                        break;
                     }
                 } else {
                     Log()->error("URL is invalid");
