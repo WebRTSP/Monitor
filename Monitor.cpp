@@ -7,13 +7,8 @@
 
 #include "WebRTSP/Client/WsClient.h"
 
-#include "RtStreaming/GstRtStreaming/GstTestStreamer.h"
-#include "RtStreaming/GstRtStreaming/GstReStreamer.h"
-
-#include "RtStreaming/GstRtStreaming/GstTestStreamer2.h"
-#include "RtStreaming/GstRtStreaming/GstReStreamer2.h"
-#include "RtStreaming/GstRtStreaming/GstRecordStreamer.h"
 #include "RtStreaming/GstRtStreaming/GstClient.h"
+#include "RtStreaming/GstRtStreaming/GstStreamingSource.h"
 
 #include "Log.h"
 #include "RecordSession.h"
