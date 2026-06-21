@@ -287,8 +287,12 @@ static bool LoadConfig(Config* config)
                     uri,
                     token,
                     trackMotion != FALSE,
-                    std::chrono::seconds(std::max(3, previewDuration)),
                 };
+
+            if(previewDuration > 0) {
+                loadedConfig.source->motionPreviewDuration =
+                    std::chrono::seconds(std::max(3, previewDuration));
+            }
         }
 
         config_setting_t* videoOutputConfig = config_lookup(&config, "video-output");
