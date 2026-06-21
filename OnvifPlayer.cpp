@@ -16,6 +16,8 @@
 namespace {
 
 const char *const PullSubscriptionDuration = "PT1M"; // 1 minute, relative
+const char *const PullMessagesTimeout = "PT5S"; // 5 seconds
+const int PullMessagesLimit = 50;
 constexpr std::chrono::seconds PullSubscriptionRefreshInterval = std::chrono::seconds(30);
 
 void AddAuth(
@@ -56,7 +58,6 @@ struct OnvifPlayer::Private
         GCancellable* cancellable);
 
     struct MediaUris {
-        std::string mediaEndpointUri;
         std::string streamUri;
     };
 
@@ -107,8 +108,8 @@ struct OnvifPlayer::Private
 
     GCancellablePtr motionEventRequestTaskCancellablePtr;
     GTaskPtr motionEventRequestTaskPtr;
-    std::string motionEventSubscriptionEndpoint; // not thread safe, to use only in motionEventRequestTask
-    std::chrono::steady_clock::time_point motionEventSubscriptionTime; // ^^^ the same ^^^
+    std::string eventSubscriptionEndpoint; // not thread safe, to use only in motionEventRequestTask
+    std::chrono::steady_clock::time_point eventSubscriptionTime; // ^^^ the same ^^^
 
     GSourcePtr previewStopTimeoutSource;
 };
@@ -170,6 +171,8 @@ void OnvifPlayer::Private::requestMediaUrisTaskFunc(
     SOAP soap;
 
     _tds__GetCapabilities getCapabilities;
+    tt__CapabilityCategory category = tt__CapabilityCategory::Media;
+    getCapabilities.Category.push_back(category);
     _tds__GetCapabilitiesResponse getCapabilitiesResponse;
     AddAuth(soap, p.username, p.password);
     status = soap_call___tds__GetCapabilities(
@@ -289,7 +292,7 @@ void OnvifPlayer::Private::requestMediaUrisTaskFunc(
 
     g_task_return_pointer(
         task,
-        new MediaUris { mediaEndpoint, mediaUriUri },
+        new MediaUris { mediaUriUri },
         [] (gpointer mediaUris) { delete(static_cast<MediaUris*>(mediaUris)); });
 }
 
@@ -305,8 +308,27 @@ void OnvifPlayer::Private::requestMotionEventTaskFunc(
 
     SOAP soap;
 
+    _tds__GetCapabilities getCapabilities;
+    tt__CapabilityCategory category = tt__CapabilityCategory::Events;
+    getCapabilities.Category.push_back(category);
+    _tds__GetCapabilitiesResponse getCapabilitiesResponse;
+    AddAuth(soap, self.username, self.password);
+    status = soap_call___tds__GetCapabilities(
+        soap,
+        self.url.c_str(),
+        nullptr,
+        &getCapabilities, getCapabilitiesResponse);
+    if(status != SOAP_OK) {
+        const char* faultString = soap_fault_string(soap);
+        GError* error = g_error_new_literal(SoapDomain, status, faultString ? faultString : "GetCapabilities failed");
+        g_task_return_error(task, error);
+        return;
+    }
+
+    const std::string& eventsEndpoint = getCapabilitiesResponse.Capabilities->Events->XAddr;
+
     bool renewRequired = true;
-    if(self.motionEventSubscriptionEndpoint.empty()) {
+    if(self.eventSubscriptionEndpoint.empty()) {
         _tev__CreatePullPointSubscription ceatePullPointSubscription;
         std::string InitialTerminationTime = PullSubscriptionDuration;
         ceatePullPointSubscription.InitialTerminationTime = &InitialTerminationTime;
@@ -314,7 +336,7 @@ void OnvifPlayer::Private::requestMotionEventTaskFunc(
         AddAuth(soap, self.username, self.password);
         status = soap_call___tev__CreatePullPointSubscription(
             soap,
-            self.mediaUris->mediaEndpointUri.c_str(),
+            eventsEndpoint.c_str(),
             nullptr,
             &ceatePullPointSubscription,
             createPullPointSubscriptionResponse);
@@ -325,11 +347,11 @@ void OnvifPlayer::Private::requestMotionEventTaskFunc(
             return;
         }
 
-        self.motionEventSubscriptionEndpoint = createPullPointSubscriptionResponse.SubscriptionReference.Address;
-        self.motionEventSubscriptionTime = std::chrono::steady_clock::now();
+        self.eventSubscriptionEndpoint = createPullPointSubscriptionResponse.SubscriptionReference.Address;
+        self.eventSubscriptionTime = std::chrono::steady_clock::now();
         renewRequired = false;
     } else {
-        const auto timeElapsed = std::chrono::steady_clock::now() - self.motionEventSubscriptionTime;
+        const auto timeElapsed = std::chrono::steady_clock::now() - self.eventSubscriptionTime;
         renewRequired = timeElapsed > PullSubscriptionRefreshInterval;
     }
 
@@ -341,12 +363,12 @@ void OnvifPlayer::Private::requestMotionEventTaskFunc(
         AddAuth(soap, self.username, self.password);
         status = soap_call___tev__Renew(
             soap,
-            self.mediaUris->mediaEndpointUri.c_str(),
+            self.eventSubscriptionEndpoint.c_str(),
             nullptr,
             &renew,
             renewResponse);
         if(status != SOAP_OK) {
-            self.motionEventSubscriptionEndpoint.clear();
+            self.eventSubscriptionEndpoint.clear();
 
             const char* faultString = soap_fault_string(soap);
             GError* error = g_error_new_literal(SoapDomain, status, faultString ? faultString : "Renew failed");
@@ -354,15 +376,17 @@ void OnvifPlayer::Private::requestMotionEventTaskFunc(
             return;
         }
 
-        self.motionEventSubscriptionTime = std::chrono::steady_clock::now();
+        self.eventSubscriptionTime = std::chrono::steady_clock::now();
     }
 
     _tev__PullMessages pullMessages;
+    pullMessages.Timeout = PullMessagesTimeout;
+    pullMessages.MessageLimit = PullMessagesLimit;
     _tev__PullMessagesResponse pullMessagesResponse;
     AddAuth(soap, self.username, self.password);
     status = soap_call___tev__PullMessages(
         soap,
-        self.mediaUris->mediaEndpointUri.c_str(),
+        self.eventSubscriptionEndpoint.c_str(),
         nullptr,
         &pullMessages,
         pullMessagesResponse);
@@ -402,12 +426,7 @@ void OnvifPlayer::Private::requestMotionEventTaskFunc(
         }
     }
 
-    GError* error =
-        g_error_new_literal(
-            Domain,
-            NOTIFICATION_MESSAGE_DOES_NOT_CONTAIN_MOTION_EVENT,
-            "Notification message doesn't contain motion event");
-    g_task_return_error(task, error);
+    g_task_return_boolean(task, false);
 }
 
 void OnvifPlayer::Private::requestMediaUris() noexcept
@@ -459,7 +478,6 @@ void OnvifPlayer::Private::requestMediaUris() noexcept
 
 void OnvifPlayer::Private::onMediaUris(std::unique_ptr<MediaUris>& mediaUris) noexcept
 {
-    log->info("Media endpoint uri discovered: {}", mediaUris->mediaEndpointUri);
     log->info("Media stream uri discovered: {}", mediaUris->streamUri);
 
     this->mediaUris.swap(mediaUris);
