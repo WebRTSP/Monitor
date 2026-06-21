@@ -236,19 +236,66 @@ int MonitorMain(const Config& config)
         g_main_loop_run(loop);
         return 0;
     } else if(config.source->type == StreamSource::Type::Onvif) {
-        OnvifPlayer player(
-            config.source->uri,
-            {},
-            {},
-            config.source->trackMotion,
-            config.source->motionPreviewDuration,
-            config.videoOutput.showStats,
-            config.videoOutput.sync,
-            onOnvifPlayerEos);
-        player.play();
+        gchar *scheme;
+        gchar *user;
+        gchar *password;
+        gchar *authParams;
+        gchar *host;
+        gint port;
+        gchar *path;
+        gchar *query;
+        gchar *fragment;
 
-        g_main_loop_run(loop);
-        return 0;
+        GCharPtr urlPtr;
+        GCharPtr userPtr(user);
+        GCharPtr passwordPtr(password);
+        if(g_uri_split_with_user(
+            config.source->uri.c_str(),
+            G_URI_FLAGS_HAS_PASSWORD,
+            &scheme,
+            &user,
+            &password,
+            &authParams,
+            &host,
+            &port,
+            &path,
+            &query,
+            &fragment,
+            nullptr))
+        {
+            GCharPtr schemePtr(scheme);
+            userPtr.reset(user);
+            passwordPtr.reset(password);
+            GCharPtr authParamsPtr(authParams);
+            GCharPtr hostPtr(host);
+            GCharPtr pathPtr(path);
+            GCharPtr queryPtr(query);
+            GCharPtr fragmentPtr(fragment);
+            GCharPtr urlPtr(
+                g_uri_join(
+                    G_URI_FLAGS_NONE,
+                    scheme,
+                    nullptr, // userinfo
+                    host,
+                    port,
+                    path,
+                    query,
+                    fragment));
+
+            OnvifPlayer player(
+                urlPtr.get(),
+                userPtr ? std::optional<std::string>(userPtr.get()) : std::optional<std::string>(),
+                passwordPtr ? std::optional<std::string>(passwordPtr.get()) : std::optional<std::string>(),
+                config.source->trackMotion,
+                config.source->motionPreviewDuration,
+                config.videoOutput.showStats,
+                config.videoOutput.sync,
+                onOnvifPlayerEos);
+            player.play();
+
+            g_main_loop_run(loop);
+            return 0;
+        }
     }
 
     return -1;
