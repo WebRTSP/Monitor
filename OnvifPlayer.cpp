@@ -523,6 +523,7 @@ void OnvifPlayer::Private::requestMotionEvent() noexcept
                 OnvifPlayer::Private* self =
                     reinterpret_cast<OnvifPlayer::Private*>(userData);
                 self->onMotionEvent(isMotion);
+                self->startMotionEventRequestTimeout();
             }
         };
 
@@ -550,8 +551,6 @@ void OnvifPlayer::Private::onMotionEvent(gboolean isMotion) noexcept
 
         startPreviewStopTimeout();
     }
-
-    startMotionEventRequestTimeout();
 }
 
 void OnvifPlayer::Private::startPreviewStopTimeout() noexcept
