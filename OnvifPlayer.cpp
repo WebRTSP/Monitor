@@ -333,8 +333,6 @@ void OnvifPlayer::Private::requestMotionEventTaskFunc(
         renewRequired = timeElapsed > PullSubscriptionRefreshInterval;
     }
 
-    //PullPointSubscriptionBindingProxy pullProxy(self.motionEventSubscriptionEndpoint.c_str());
-
     if(renewRequired) {
         _wsnt__Renew renew;
         std::string TerminationTime = PullSubscriptionDuration;
