@@ -168,11 +168,10 @@ void OnvifPlayer::Private::requestMediaUrisTaskFunc(
     soap_status status;
 
     SOAP soap;
-    AddAuth(soap, p.username, p.password);
-
 
     _tds__GetCapabilities getCapabilities;
     _tds__GetCapabilitiesResponse getCapabilitiesResponse;
+    AddAuth(soap, p.username, p.password);
     status = soap_call___tds__GetCapabilities(
         soap,
         p.url.c_str(),
@@ -187,9 +186,9 @@ void OnvifPlayer::Private::requestMediaUrisTaskFunc(
 
     const std::string& mediaEndpoint = getCapabilitiesResponse.Capabilities->Media->XAddr;
 
-
     _trt__GetProfiles getProfiles;
     _trt__GetProfilesResponse getProfilesResponse;
+    AddAuth(soap, p.username, p.password);
     status = soap_call___trt__GetProfiles(
         soap,
         mediaEndpoint.c_str(),
@@ -228,6 +227,7 @@ void OnvifPlayer::Private::requestMediaUrisTaskFunc(
 
     getStreamUri.StreamSetup = &streamSetup;
 
+    AddAuth(soap, p.username, p.password);
     status = soap_call___trt__GetStreamUri(
         soap,
         mediaEndpoint.c_str(),
@@ -304,7 +304,6 @@ void OnvifPlayer::Private::requestMotionEventTaskFunc(
     OnvifPlayer::Private& self = *static_cast<OnvifPlayer::Private*>(taskData);
 
     SOAP soap;
-    AddAuth(soap, self.username, self.password);
 
     bool renewRequired = true;
     if(self.motionEventSubscriptionEndpoint.empty()) {
@@ -312,6 +311,7 @@ void OnvifPlayer::Private::requestMotionEventTaskFunc(
         std::string InitialTerminationTime = PullSubscriptionDuration;
         ceatePullPointSubscription.InitialTerminationTime = &InitialTerminationTime;
         _tev__CreatePullPointSubscriptionResponse createPullPointSubscriptionResponse;
+        AddAuth(soap, self.username, self.password);
         status = soap_call___tev__CreatePullPointSubscription(
             soap,
             self.mediaUris->mediaEndpointUri.c_str(),
@@ -340,6 +340,7 @@ void OnvifPlayer::Private::requestMotionEventTaskFunc(
         std::string TerminationTime = PullSubscriptionDuration;
         renew.TerminationTime = &TerminationTime;
         _wsnt__RenewResponse renewResponse;
+        AddAuth(soap, self.username, self.password);
         status = soap_call___tev__Renew(
             soap,
             self.mediaUris->mediaEndpointUri.c_str(),
@@ -360,6 +361,7 @@ void OnvifPlayer::Private::requestMotionEventTaskFunc(
 
     _tev__PullMessages pullMessages;
     _tev__PullMessagesResponse pullMessagesResponse;
+    AddAuth(soap, self.username, self.password);
     status = soap_call___tev__PullMessages(
         soap,
         self.mediaUris->mediaEndpointUri.c_str(),
