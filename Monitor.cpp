@@ -240,10 +240,6 @@ int MonitorMain(const Config& config)
         gchar *path;
         gchar *query;
         gchar *fragment;
-
-        GCharPtr urlPtr;
-        GCharPtr userPtr(user);
-        GCharPtr passwordPtr(password);
         if(g_uri_split_with_user(
             config.source->uri.c_str(),
             G_URI_FLAGS_HAS_PASSWORD,
@@ -259,8 +255,8 @@ int MonitorMain(const Config& config)
             nullptr))
         {
             GCharPtr schemePtr(scheme);
-            userPtr.reset(user);
-            passwordPtr.reset(password);
+            GCharPtr userPtr(user);
+            GCharPtr passwordPtr(password);
             GCharPtr authParamsPtr(authParams);
             GCharPtr hostPtr(host);
             GCharPtr pathPtr(path);
