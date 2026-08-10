@@ -19,7 +19,6 @@
 #include "RtStreaming/GstRtStreaming/LibGst.h"
 
 #include "Signalling/Log.h"
-#include "Client/Log.h"
 
 #include "Log.h"
 #include "Monitor.h"
@@ -134,7 +133,7 @@ static bool LoadConfig(Config* config)
             const char* token = "";
             config_setting_lookup_string(recordServerConfig, "token", &token);
 
-            int wsPort = signalling::DEFAULT_WS_PORT;
+            int wsPort = WEBRTSP_DEFAULT_WS_PORT;
             if(config_setting_lookup_int(recordServerConfig, "port", &wsPort) != CONFIG_FALSE) {
                 if(
                     wsPort < std::numeric_limits<uint16_t>::min() ||
@@ -151,9 +150,9 @@ static bool LoadConfig(Config* config)
             int loopbackOnly = FALSE;
             config_setting_lookup_bool(recordServerConfig, "loopback-only", &loopbackOnly);
 
-            std::optional<signalling::Config> serverConfig;
+            std::optional<WsServerConfig> serverConfig;
             if(wsPort) {
-                serverConfig = signalling::Config {
+                serverConfig = WsServerConfig {
                     .bindToLoopbackOnly = loopbackOnly != FALSE,
                     .port = static_cast<unsigned short>(wsPort),
                 };
@@ -235,8 +234,8 @@ static bool LoadConfig(Config* config)
                     case StreamSource::Type::WebRTSP:
                         if(port == -1) {
                             webrtspPort = useTls ?
-                                signalling::DEFAULT_WSS_PORT :
-                                signalling::DEFAULT_WS_PORT;
+                                WEBRTSP_DEFAULT_WSS_PORT :
+                                WEBRTSP_DEFAULT_WS_PORT;
                         } else if(
                             port < std::numeric_limits<uint16_t>::min() ||
                             port > std::numeric_limits<uint16_t>::max()
@@ -252,7 +251,7 @@ static bool LoadConfig(Config* config)
                         if(path[0] == '/')
                             ++path;
 
-                        if(path[0] == '\0' || g_strcmp0(path, rtsp::WildcardUri) == 0)
+                        if(path[0] == '\0' || path == rtsp::WildcardUri)
                             uri = rtsp::WildcardUri;
                         else {
                             g_autofree gchar* escapedPath = g_uri_escape_string(path, "/", false);
@@ -270,9 +269,9 @@ static bool LoadConfig(Config* config)
                 }
             }
 
-            std::optional<client::Config> clientConfig;
+            std::optional<WsClientConfig> clientConfig;
             if(sourceType == StreamSource::Type::WebRTSP && hostPtr.get() && webrtspPort) {
-                clientConfig = client::Config {
+                clientConfig = WsClientConfig {
                     .server = hostPtr.get(),
                     .serverPort = webrtspPort,
                     .useTls = useTls,
@@ -330,9 +329,8 @@ int main(int argc, char *argv[])
 
     InitLwsLogger(config.lwsLogLevel);
     InitWsServerLogger(config.logLevel);
-    InitServerSessionLogger(config.logLevel);
     InitWsClientLogger(config.logLevel);
-    InitClientSessionLogger(config.logLevel);
+    rtsp::InitSessionLogger(config.logLevel);
     InitGstRtStreamingLogger(config.logLevel);
     InitMonitorLogger(config.logLevel);
 

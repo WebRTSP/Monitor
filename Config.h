@@ -5,7 +5,6 @@
 #include <spdlog/common.h>
 
 #include "Signalling/Config.h"
-#include "Client/Config.h"
 
 #include "RtStreaming/WebRTCConfig.h"
 
@@ -20,8 +19,8 @@ struct StreamSource
 
     Type type;
 
-    std::optional<signalling::Config> localServer; // for RECORD
-    std::optional<client::Config> client;
+    std::optional<WsServerConfig> localServer; // for RECORD
+    std::optional<WsClientConfig> client;
 
     std::string uri;
     std::string token;

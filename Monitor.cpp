@@ -4,8 +4,7 @@
 #include <CxxPtr/libwebsocketsPtr.h>
 
 #include "Signalling/WsServer.h"
-
-#include "WebRTSP/Client/WsClient.h"
+#include "Signalling/WsClient.h"
 
 #include "RtStreaming/GstRtStreaming/GstClient.h"
 #include "RtStreaming/GstRtStreaming/GstStreamingSource.h"
@@ -43,21 +42,6 @@ CreateRecordPeer(
         config->videoOutput.sync);
 }
 
-static std::unique_ptr<rtsp::ServerSession> CreateServerSession(
-    const Config* config,
-    const rtsp::Session::SendRequest& sendRequest,
-    const rtsp::Session::SendResponse& sendResponse)
-{
-    std::unique_ptr<RecordSession> session =
-        std::make_unique<RecordSession>(
-            config,
-            std::bind(CreatePeer, config, std::placeholders::_1),
-            std::bind(CreateRecordPeer, config, std::placeholders::_1),
-            sendRequest, sendResponse);
-
-    return session;
-}
-
 static void OnRecorderConnected(const std::string& uri)
 {
     Log()->info("Recorder connected to \"{}\" streamer", uri);
@@ -77,20 +61,9 @@ CreateClientPeer(const Config* config)
         config->videoOutput.sync);
 }
 
-static std::unique_ptr<rtsp::Session> CreateClientSession (
-    const Config* config,
-    const rtsp::Session::SendRequest& sendRequest,
-    const rtsp::Session::SendResponse& sendResponse) noexcept
-{
-    return std::make_unique<Session>(
-        config,
-        std::bind(CreateClientPeer, config),
-        sendRequest, sendResponse);
-}
-
 GSourcePtr reconnectTimeoutSourcePtr;
 
-static void ClientDisconnected(client::WsClient& client)
+static void ClientDisconnected(WsClient& client)
 {
     if(reconnectTimeoutSourcePtr) {
         Log()->warn("Trying to create new reconnect timout source while previous one is still active");
@@ -105,7 +78,7 @@ static void ClientDisconnected(client::WsClient& client)
     g_source_set_callback(timeoutSource,
         [] (gpointer userData) -> gboolean {
             reconnectTimeoutSourcePtr.reset();
-            static_cast<client::WsClient*>(userData)->connect();
+            static_cast<WsClient*>(userData)->connect();
             return false;
         }, &client, nullptr);
     g_source_attach(timeoutSource, g_main_context_get_thread_default());
@@ -162,6 +135,56 @@ static void onOnvifPlayerEos(OnvifPlayer& player)
     g_source_attach(timeoutSource, g_main_context_get_thread_default());
 }
 
+namespace {
+
+struct ServerSessionFactory: public WsServer::SessionFactory
+{
+    ServerSessionFactory(const Config* config) : config(config) {}
+
+    std::unique_ptr<rtsp::Session> createSession(
+        std::optional<std::string>&& /*authCookie*/,
+        const rtsp::Session::SendRequest& sendRequest,
+        const rtsp::Session::SendResponse& sendResponse) noexcept override
+    {
+        return std::make_unique<RecordSession>(
+            config,
+            [config = config] (const std::string& uri) {
+                return CreatePeer(config, uri);
+            },
+            [config = config] (const std::string& uri) {
+                return CreateRecordPeer(config, uri);
+            },
+            sendRequest,
+            sendResponse);
+    }
+
+private:
+    const Config *const config;
+};
+
+struct ClientSessionFactory: public WsClient::SessionFactory
+{
+    ClientSessionFactory(const Config* config) : config(config) {}
+
+    std::unique_ptr<rtsp::Session> createSession(
+        const rtsp::Session::SendRequest& sendRequest,
+        const rtsp::Session::SendResponse& sendResponse) noexcept override
+    {
+        return std::make_unique<Session>(
+            config,
+            [config = config] () {
+                return CreateClientPeer(config);
+            },
+            sendRequest,
+            sendResponse);
+    }
+
+private:
+    const Config *const config;
+};
+
+}
+
 int MonitorMain(const Config& config)
 {
     if(!config.source)
@@ -188,31 +211,25 @@ int MonitorMain(const Config& config)
             LwsContextPtr lwsContextPtr(lws_create_context(&lwsInfo));
             lws_context* lwsContext = lwsContextPtr.get();
 
-            signalling::WsServer server(
-                *config.source->localServer,
-                loop,
-                std::bind(
-                    CreateServerSession,
-                    &config,
-                    std::placeholders::_1,
-                    std::placeholders::_2));
+            ServerSessionFactory sessionFactory(&config);
 
-            if(server.init(lwsContext)) {
+            WsServer server(
+                config.source->localServer.value(),
+                &sessionFactory);
+
+            if(server.init(loop, lwsContext)) {
                 g_main_loop_run(loop);
                 return 0;
             }
         } else if(config.source->client) {
-            client::WsClient client(
+            ClientSessionFactory sessionFactory(&config);
+
+            WsClient client(
                 config.source->client.value(),
-                loop,
-                std::bind(
-                    CreateClientSession,
-                    &config,
-                    std::placeholders::_1,
-                    std::placeholders::_2),
+                &sessionFactory,
                 ClientDisconnected);
 
-            if(client.init()) {
+            if(client.init(loop)) {
                 client.connect();
                 g_main_loop_run(loop);
                 return 0;

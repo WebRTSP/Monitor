@@ -14,7 +14,7 @@ RecordSession::RecordSession(
     const CreatePeer& createPeer,
     const rtsp::Session::SendRequest& sendRequest,
     const rtsp::Session::SendResponse& sendResponse) noexcept :
-    ServerSession(config->webRTCConfig, createPeer, sendRequest, sendResponse),
+    rtsp::StreamSession(config->webRTCConfig, createPeer, sendRequest, sendResponse),
     _config(config)
 {
 }
@@ -25,7 +25,7 @@ RecordSession::RecordSession(
     const CreatePeer& createRecordPeer,
     const rtsp::Session::SendRequest& sendRequest,
     const rtsp::Session::SendResponse& sendResponse) noexcept :
-    ServerSession(config->webRTCConfig, createPeer, createRecordPeer, sendRequest, sendResponse),
+    rtsp::StreamSession(config->webRTCConfig, createPeer, createRecordPeer, sendRequest, sendResponse),
     _config(config)
 {
 }
@@ -85,5 +85,5 @@ bool RecordSession::authorize(const std::unique_ptr<rtsp::Request>& requestPtr) 
         return false;
     }
 
-    return ServerSession::authorize(requestPtr);
+    return StreamSession::authorize(requestPtr);
 }
