@@ -164,6 +164,7 @@ static bool LoadConfig(Config* config)
                 .recordToken = token,
                 .client = {},
                 .uri = {},
+                .accessToken = {},
                 .trackMotion = false,
             };
         }
@@ -198,7 +199,7 @@ static bool LoadConfig(Config* config)
                 gchar* path;
                 if(g_uri_split_with_user(
                     url,
-                    G_URI_FLAGS_NONE,
+                    G_URI_FLAGS_HAS_PASSWORD,
                     &scheme,
                     &user,
                     &password,
@@ -280,6 +281,7 @@ static bool LoadConfig(Config* config)
                 .recordToken = {},
                 .client = clientConfig,
                 .uri = uri,
+                .accessToken = passwordPtr ? passwordPtr.get() : "",
                 .trackMotion = trackMotion != FALSE,
             };
 
