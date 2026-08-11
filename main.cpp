@@ -158,22 +158,18 @@ static bool LoadConfig(Config* config)
                 };
             }
 
-            loadedConfig.source =
-                StreamSource {
-                    StreamSource::Type::WebRTSP,
-                    serverConfig,
-                    {},
-                    {},
-                    token,
-                    false,
-                };
+            loadedConfig.source = StreamSource {
+                .type = StreamSource::Type::WebRTSP,
+                .localServer = serverConfig,
+                .recordToken = token,
+                .client = {},
+                .uri = {},
+                .trackMotion = false,
+            };
         }
 
         config_setting_t* sourceConfig = !recordServerConfig ? config_lookup(&config, "source") : nullptr;
         if(sourceConfig && config_setting_is_group(sourceConfig) != CONFIG_FALSE) {
-            const char* token = "";
-            config_setting_lookup_string(sourceConfig, "token", &token);
-
             gboolean trackMotion = FALSE;
             config_setting_lookup_bool(sourceConfig, "track-motion", &trackMotion);
 
@@ -278,15 +274,14 @@ static bool LoadConfig(Config* config)
                 };
             }
 
-            loadedConfig.source =
-                StreamSource {
-                    sourceType,
-                    {},
-                    clientConfig,
-                    uri,
-                    token,
-                    trackMotion != FALSE,
-                };
+            loadedConfig.source = StreamSource {
+                .type = sourceType,
+                .localServer = {},
+                .recordToken = {},
+                .client = clientConfig,
+                .uri = uri,
+                .trackMotion = trackMotion != FALSE,
+            };
 
             if(previewDuration > 0) {
                 loadedConfig.source->motionPreviewDuration =
