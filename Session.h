@@ -20,6 +20,8 @@ protected:
     FeatureState subscribeSupportState(const std::string& /*uri*/) noexcept override
         { return FeatureState::Enabled; }
 
+    void sendRequest(rtsp::Request&) noexcept override;
+
 private:
     const Config *const _config;
 };
