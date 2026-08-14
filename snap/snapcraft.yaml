@@ -42,12 +42,13 @@ parts:
   monitor:
     plugin: cmake
     source: .
+    cmake-generator: Ninja
     cmake-parameters:
       - -DCMAKE_BUILD_TYPE=Release
       - -DCMAKE_INSTALL_PREFIX=/opt/${SNAPCRAFT_PROJECT_NAME}
     build-packages:
       - g++
-      - make
+      - ninja-build
       - libspdlog-dev
       - libconfig-dev
       - libgstreamer1.0-dev
