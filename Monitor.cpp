@@ -63,7 +63,7 @@ CreateClientPeer(const Config* config)
 
 GSourcePtr reconnectTimeoutSourcePtr;
 
-static void ClientDisconnected(WsClient& client)
+static void ClientDisconnected(WsClient& client, unsigned /*statusCode*/)
 {
     if(reconnectTimeoutSourcePtr) {
         Log()->warn("Trying to create new reconnect timout source while previous one is still active");

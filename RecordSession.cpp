@@ -54,13 +54,13 @@ bool RecordSession::authorizeRecorder(const std::unique_ptr<rtsp::Request>& requ
     if(source.recordToken.empty())
         return true;
 
-    const std::pair<rtsp::Authentication, std::string> authPair =
+    const std::pair<rtsp::Authentication, rtsp::Credentials> authPair =
         rtsp::ParseAuthentication(*requestPtr);
 
     if(authPair.first != rtsp::Authentication::Bearer) // FIXME? only Bearer supported atm
         return false;
 
-    return authPair.second == source.recordToken;
+    return authPair.second.accessToken == source.recordToken;
 }
 
 bool RecordSession::authorize(const std::unique_ptr<rtsp::Request>& requestPtr) noexcept
