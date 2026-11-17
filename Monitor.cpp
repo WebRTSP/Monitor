@@ -8,10 +8,10 @@
 
 #include "RtStreaming/GstRtStreaming/GstClient.h"
 #include "RtStreaming/GstRtStreaming/GstStreamingSource.h"
+#include "WebRTSPPlayer/WebRTSPPlayer.h"
 
 #include "Log.h"
 #include "RecordSession.h"
-#include "Session.h"
 #include "UrlPlayer.h"
 #include "OnvifPlayer.h"
 
@@ -52,15 +52,7 @@ static void OnRecorderDisconnected(const std::string& uri)
     Log()->info("Recorder disconnected from \"{}\" streamer", uri);
 }
 
-
-static std::unique_ptr<WebRTCPeer>
-CreateClientPeer(const Config* config)
-{
-    return std::make_unique<GstClient>(
-        config->videoOutput.showStats,
-        config->videoOutput.sync);
-}
-
+// FIXME! нужен g_source_destroy
 GSourcePtr reconnectTimeoutSourcePtr;
 
 static void ClientDisconnected(WsClient& client, unsigned /*statusCode*/)
@@ -162,21 +154,14 @@ private:
     const Config *const config;
 };
 
-struct ClientSessionFactory: public WsClient::SessionFactory
+struct ClientPeerFactory: public WebRTSPPlayer::PeerFactory
 {
-    ClientSessionFactory(const Config* config) : config(config) {}
+    ClientPeerFactory(const Config* config): config(config) {}
 
-    std::unique_ptr<rtsp::Session> createSession(
-        const rtsp::Session::SendRequest& sendRequest,
-        const rtsp::Session::SendResponse& sendResponse) noexcept override
-    {
-        return std::make_unique<Session>(
-            config,
-            [config = config] () {
-                return CreateClientPeer(config);
-            },
-            sendRequest,
-            sendResponse);
+    std::unique_ptr<WebRTCPeer> createPeer() noexcept override {
+        return std::make_unique<GstClient>(
+            config->videoOutput.showStats,
+            config->videoOutput.sync);
     }
 
 private:
@@ -221,16 +206,13 @@ int MonitorMain(const Config& config)
                 g_main_loop_run(loop);
                 return 0;
             }
-        } else if(config.source->client) {
-            ClientSessionFactory sessionFactory(&config);
-
-            WsClient client(
-                config.source->client.value(),
-                &sessionFactory,
-                ClientDisconnected);
-
-            if(client.init(loop)) {
-                client.connect();
+        } else {
+            ClientPeerFactory peerFactory(&config);
+            WebRTSPPlayer player(
+                loop,
+                config.webRTCConfig,
+                &peerFactory);
+            if(player.connect(config.source->url)) {
                 g_main_loop_run(loop);
                 return 0;
             }
@@ -239,11 +221,10 @@ int MonitorMain(const Config& config)
         UrlPlayer player(
             config.videoOutput.showStats,
             config.videoOutput.sync,
-            std::bind(
-                onUrlPlayerEos,
-                std::placeholders::_1,
-                config.source->uri));
-        player.play(config.source->uri);
+            [&config] (UrlPlayer& player) {
+                return onUrlPlayerEos(player, config.source->url);
+            });
+        player.play(config.source->url);
 
         g_main_loop_run(loop);
         return 0;
@@ -258,7 +239,7 @@ int MonitorMain(const Config& config)
         gchar *query;
         gchar *fragment;
         if(g_uri_split_with_user(
-            config.source->uri.c_str(),
+            config.source->url.c_str(),
             G_URI_FLAGS_HAS_PASSWORD,
             &scheme,
             &user,

@@ -22,9 +22,7 @@ struct StreamSource
     std::optional<WsServerConfig> localServer; // for RECORD
     std::string recordToken;
 
-    std::optional<WsClientConfig> client;
-    std::string uri;
-    std::string accessToken;
+    std::string url;
 
     bool trackMotion; // for ONVIF sources
     std::chrono::seconds motionPreviewDuration = std::chrono::seconds(15);

@@ -162,9 +162,7 @@ static bool LoadConfig(Config* config)
                 .type = StreamSource::Type::WebRTSP,
                 .localServer = serverConfig,
                 .recordToken = token,
-                .client = {},
-                .uri = {},
-                .accessToken = {},
+                .url = {},
                 .trackMotion = false,
             };
         }
@@ -179,109 +177,36 @@ static bool LoadConfig(Config* config)
 
             StreamSource::Type sourceType = StreamSource::Type::WebRTSP;
             const char* url;
-            bool useTls = false;
             GCharPtr userPtr;
             GCharPtr passwordPtr;
             GCharPtr hostPtr;
             unsigned short webrtspPort = 0;
-            std::string uri;
 
-            const bool onvif = config_setting_lookup_string(sourceConfig, "onvif", &url) != CONFIG_FALSE;
-            if(
-                onvif ||
-                config_setting_lookup_string(sourceConfig, "url", &url) != CONFIG_FALSE
-            ) {
-                gchar* scheme;
-                gint port;
-                gchar* user;
-                gchar* password;
-                gchar* host;
-                gchar* path;
-                if(g_uri_split_with_user(
-                    url,
-                    G_URI_FLAGS_HAS_PASSWORD,
-                    &scheme,
-                    &user,
-                    &password,
-                    nullptr, // auth_params
-                    &host,
-                    &port,
-                    &path,
-                    nullptr, // query
-                    nullptr, // fragment
-                    nullptr))
-                {
-                    GCharPtr schemePtr(scheme);
-                    userPtr.reset(user);
-                    passwordPtr.reset(password);
-                    hostPtr.reset(host);
-                    GCharPtr pathPtr(path);
-
-                    if(g_strcmp0(scheme, "webrtsp") == 0) {
-                        useTls = false;
-                    } else if(g_strcmp0(scheme, "webrtsps") == 0) {
-                        useTls = true;
+            if(const bool onvif = config_setting_lookup_string(sourceConfig, "onvif", &url) != CONFIG_FALSE) {
+                sourceType = StreamSource::Type::Onvif;
+            } else if(config_setting_lookup_string(sourceConfig, "url", &url) != CONFIG_FALSE) {
+                g_autofree gchar* scheme = nullptr;
+                if(scheme = g_uri_parse_scheme(url)) {
+                    if(g_strcmp0(scheme, "webrtsp") == 0 || g_strcmp0(scheme, "webrtsps") == 0) {
+                        sourceType = StreamSource::Type::WebRTSP;
                     } else if(onvif) {
-                        sourceType = StreamSource::Type::Onvif;
                     } else {
                         sourceType = StreamSource::Type::Url;
                     }
-
-                    switch(sourceType) {
-                    case StreamSource::Type::WebRTSP:
-                        if(port == -1) {
-                            webrtspPort = useTls ?
-                                WEBRTSP_DEFAULT_WSS_PORT :
-                                WEBRTSP_DEFAULT_WS_PORT;
-                        } else if(
-                            port < std::numeric_limits<uint16_t>::min() ||
-                            port > std::numeric_limits<uint16_t>::max()
-                        ) {
-                            Log()->error(
-                                "\"port\" value is invalid. In should be in [{}, {}]",
-                                std::numeric_limits<uint16_t>::min(),
-                                std::numeric_limits<uint16_t>::max());
-                        } else {
-                           webrtspPort = port;
-                        }
-
-                        if(path[0] == '/')
-                            ++path;
-
-                        if(path[0] == '\0' || path == rtsp::WildcardUri)
-                            uri = rtsp::WildcardUri;
-                        else {
-                            g_autofree gchar* escapedPath = g_uri_escape_string(path, "/", false);
-                            uri = escapedPath;
-                        }
-
-                        break;
-                    case StreamSource::Type::Onvif:
-                    case StreamSource::Type::Url:
-                        uri = url;
-                        break;
-                    }
                 } else {
                     Log()->error("URL is invalid");
+                    return false;
                 }
-            }
-
-            std::optional<WsClientConfig> clientConfig;
-            if(sourceType == StreamSource::Type::WebRTSP && hostPtr.get() && webrtspPort) {
-                clientConfig = WsClientConfig {
-                    .server = hostPtr.get(),
-                    .serverPort = webrtspPort,
-                    .useTls = useTls,
-                };
+            } else {
+                Log()->error("URL is missing");
+                return false;
             }
 
             loadedConfig.source = StreamSource {
                 .type = sourceType,
                 .localServer = {},
                 .recordToken = {},
-                .client = clientConfig,
-                .uri = uri,
-                .accessToken = passwordPtr ? passwordPtr.get() : "",
+                .url = url,
                 .trackMotion = trackMotion != FALSE,
             };
 
@@ -323,6 +248,12 @@ int main(int argc, char *argv[])
     Config config {};
     if(!LoadConfig(&config))
         return -1;
+
+#ifdef NDEBUG
+    spdlog::set_level(spdlog::level::info);
+#else
+    spdlog::set_level(spdlog::level::debug);
+#endif
 
     InitLwsLogger(config.lwsLogLevel);
     InitWsServerLogger(config.logLevel);

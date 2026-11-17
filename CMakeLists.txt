@@ -35,6 +35,7 @@ target_include_directories(${PROJECT_NAME} PUBLIC
 target_link_libraries(${PROJECT_NAME}
     ${LIBCONFIG_LIBRARIES}
     ${SPDLOG_LDFLAGS}
+    WebRTSPPlayer
     Http
     RtspParser
     Signalling
